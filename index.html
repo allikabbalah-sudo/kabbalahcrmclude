@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מיינד־פלואו · ניהול קליניקה</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#127C82">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- Firebase (compat SDK — same collection().doc().onSnapshot()/.add()/.update()/.set()/.delete() shape used throughout this app) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+<style>
+  :root{
+    --bg:#F6FAF9; --surface:#FFFFFF; --surface-2:#EFF6F5;
+    --text:#16262A; --text-muted:#5C7370;
+    --primary:#127C82; --primary-dark:#0B5459; --primary-soft:#E3F2F1;
+    --accent:#F4D9B0; --accent-text:#6B4A1E;
+    --border:#DCE7E6;
+    --danger:#C1503F; --danger-soft:#F8E5E1;
+    --success:#3C8A5B; --success-soft:#E4F3EA;
+    --warning:#D98B3B; --warning-soft:#FBEEDF;
+    --shadow: 0 1px 2px rgba(20,40,40,.06), 0 4px 14px rgba(20,40,40,.06);
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0D1618; --surface:#142124; --surface-2:#182A2C;
+      --text:#E6F1EF; --text-muted:#8FA6A3;
+      --primary:#3FB6BC; --primary-dark:#8FD9DC; --primary-soft:#173538;
+      --accent:#4A3A23; --accent-text:#F0D3A3;
+      --border:#223333;
+      --danger:#E88478; --danger-soft:#3A2220;
+      --success:#7BC79A; --success-soft:#1D3327;
+      --warning:#E7B472; --warning-soft:#3A2C16;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 18px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1618; --surface:#142124; --surface-2:#182A2C;
+    --text:#E6F1EF; --text-muted:#8FA6A3;
+    --primary:#3FB6BC; --primary-dark:#8FD9DC; --primary-soft:#173538;
+    --accent:#4A3A23; --accent-text:#F0D3A3;
+    --border:#223333;
+    --danger:#E88478; --danger-soft:#3A2220;
+    --success:#7BC79A; --success-soft:#1D3327;
+    --warning:#E7B472; --warning-soft:#3A2C16;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 18px rgba(0,0,0,.35);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ overflow-x:hidden; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Rubik', 'Segoe UI', Tahoma, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--primary); color:#fff; }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); }
+  .kpi-card{ transition:transform .12s, box-shadow .12s; }
+  .kpi-card:hover{ transform:translateY(-2px); box-shadow:0 4px 20px rgba(20,40,40,.12); }
+  .scrollbar-thin::-webkit-scrollbar{ height:6px; width:6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb{ background:var(--border); border-radius:99px; }
+  input, select, textarea{
+    background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:10px; padding:9px 12px; font-family:inherit; font-size:14px; width:100%;
+  }
+  input:focus, select:focus, textarea:focus{ outline:2px solid var(--primary); outline-offset:1px; border-color:var(--primary); }
+  button{ font-family:inherit; }
+  button:focus-visible, a:focus-visible, [tabindex]:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:10px; padding:9px 16px; font-weight:600; font-size:14px; cursor:pointer; transition:filter .15s, transform .1s; border:1px solid transparent; }
+  .btn:active{ transform:scale(.98); }
+  .btn-primary{ background:var(--primary); color:#fff; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-ghost{ background:transparent; color:var(--text); border-color:var(--border); }
+  .btn-ghost:hover{ background:var(--surface-2); }
+  .btn-danger{ background:var(--danger-soft); color:var(--danger); }
+  .icon-btn{ display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; color:var(--text-muted); cursor:pointer; background:transparent; border:1px solid transparent; }
+  .icon-btn:hover{ background:var(--surface-2); color:var(--text); }
+  .badge{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .nav-item{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; color:var(--text-muted); font-size:11px; font-weight:600; border-radius:12px; flex:1; cursor:pointer; }
+  .nav-item.active{ color:var(--primary); }
+  .side-item{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:12px; color:var(--text-muted); font-weight:600; font-size:14px; cursor:pointer; }
+  .side-item:hover{ background:var(--surface-2); }
+  .side-item.active{ background:var(--primary-soft); color:var(--primary); }
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(10,20,20,.45); backdrop-filter:blur(2px); z-index:60; display:flex; align-items:flex-end; justify-content:center; }
+  @media(min-width:768px){ .modal-backdrop{ align-items:center; } }
+  .modal-panel{ background:var(--surface); width:100%; max-width:560px; max-height:92vh; overflow-y:auto; border-radius:20px 20px 0 0; box-shadow:var(--shadow); }
+  @media(min-width:768px){ .modal-panel{ border-radius:20px; } }
+  .fade-in{ animation:fadeIn .18s ease-out; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .toast{ position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg); padding:10px 20px; border-radius:99px; font-size:13px; font-weight:600; box-shadow:var(--shadow); z-index:80; }
+  @media(min-width:768px){ .toast{ bottom:24px; } }
+  .kanban-col{ min-width:270px; max-width:270px; }
+  .chip{ font-size:12px; padding:4px 10px; border-radius:99px; font-weight:600; border:1px solid var(--border); cursor:pointer; color:var(--text-muted); }
+  .chip.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  .empty-state{ text-align:center; padding:40px 20px; color:var(--text-muted); }
+  a{ color:var(--primary); text-decoration:none; }
+  .tab-btn{ padding:10px 4px; font-weight:600; font-size:14px; color:var(--text-muted); border-bottom:2px solid transparent; cursor:pointer; }
+  .tab-btn.active{ color:var(--primary); border-color:var(--primary); }
+  .day-cell{ aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; position:relative; font-size:13px; font-weight:600; }
+  button.day-cell{ border:none; background:transparent; font-family:inherit; color:inherit; padding:0; }
+  .day-cell:hover{ background:var(--surface-2); }
+  .day-cell.today{ outline:2px solid var(--primary); }
+  .day-cell.selected{ background:var(--primary); color:#fff; }
+  .dot{ width:5px; height:5px; border-radius:99px; background:var(--primary); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+/* ============================== ICONS ============================== */
+const ICN = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.6.3 4.5 2.6 4.5 5.3"/></svg>',
+  calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>',
+  tasks:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="m8 12 2.5 2.5L16.5 9"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a1.8 1.8 0 0 0 .36 1.98l.06.06a2.2 2.2 0 1 1-3.1 3.1l-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V20a2.2 2.2 0 1 1-4.4 0v-.1a1.8 1.8 0 0 0-1.18-1.65 1.8 1.8 0 0 0-1.98.36l-.06.06a2.2 2.2 0 1 1-3.1-3.1l.06-.06a1.8 1.8 0 0 0 .36-1.98 1.8 1.8 0 0 0-1.65-1.1H2a2.2 2.2 0 1 1 0-4.4h.1a1.8 1.8 0 0 0 1.65-1.18 1.8 1.8 0 0 0-.36-1.98l-.06-.06a2.2 2.2 0 1 1 3.1-3.1l.06.06a1.8 1.8 0 0 0 1.98.36H8.6A1.8 1.8 0 0 0 9.7 2.16V2a2.2 2.2 0 1 1 4.4 0v.1a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.06-.06a2.2 2.2 0 1 1 3.1 3.1l-.06.06a1.8 1.8 0 0 0-.36 1.98v.13c.24.83.9 1.44 1.65 1.55H22a2.2 2.2 0 1 1 0 4.4h-.1a1.8 1.8 0 0 0-1.65 1.1Z"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 4.5 1.5 6 1.5 6h-15S6 12.5 6 8Z"/><path d="M9.5 18a2.5 2.5 0 0 0 5 0"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  chevL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>',
+  chevR:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  chevDown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m5 17 4.5-4.5a2 2 0 0 1 2.8 0L16 16"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  install:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4"/><path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
+  sparkle:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5c.6 3.7 1.7 6 3.4 7.7 1.7 1.7 4 2.8 7.7 3.4-3.7.6-6 1.7-7.7 3.4-1.7 1.7-2.8 4-3.4 7.7-.6-3.7-1.7-6-3.4-7.7C6.9 15.2 4.6 14.1.9 13.5c3.7-.6 6-1.7 7.7-3.4 1.7-1.7 2.8-4 3.4-7.6Z"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A17 17 0 0 1 5 5.1 1.5 1.5 0 0 1 6.5 3.5Z"/></svg>',
+  mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 6.5 8 6 8-6"/></svg>',
+  wifiOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a17 17 0 0 1 5-2.8M22 8.5a17 17 0 0 0-6.4-3.2M6.5 12.2a10 10 0 0 1 3-1.5M17.5 12.2a10 10 0 0 0-2.2-1.2M9.5 16a5 5 0 0 1 5 0M12 20h.01M3 3l18 18"/></svg>',
+  logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"/><path d="M9 12h12m0 0-3-3m3 3-3 3"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
+  whatsapp:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.02 2C6.5 2 2.02 6.48 2.02 12c0 1.77.47 3.45 1.29 4.9L2 22l5.25-1.28A9.96 9.96 0 0 0 12.02 22C17.55 22 22 17.52 22 12S17.55 2 12.02 2Zm5.8 14.2c-.24.68-1.4 1.3-1.93 1.36-.5.07-1.02.3-3.4-.72-2.87-1.24-4.7-4.16-4.85-4.36-.14-.2-1.16-1.55-1.16-2.96 0-1.4.73-2.08 1-2.37.24-.27.53-.33.7-.33h.5c.17 0 .4-.03.6.47.24.6.8 2.06.87 2.2.07.15.12.32.02.5-.1.2-.15.32-.3.5-.14.16-.3.37-.44.5-.14.14-.3.3-.13.6.17.3.76 1.28 1.65 2.07 1.13 1.02 2.1 1.35 2.4 1.5.3.15.47.13.65-.06.17-.2.75-.87.95-1.17.2-.3.4-.24.66-.14.28.1 1.75.85 2.05 1 .3.15.5.23.57.36.08.13.08.75-.16 1.42Z"/></svg>',
+};
+function icon(name,size=20){ return `<span style="display:inline-flex;width:${size}px;height:${size}px">${ICN[name]||''}</span>`; }
+
+/* ============================== CONSTANTS ============================== */
+const CLIENT_STATUSES = [
+  {id:'lead', label:'ליד', color:'#8AA6A3'},
+  {id:'consultation', label:'ייעוץ', color:'#4C9AA6'},
+  {id:'active', label:'פעיל', color:'#127C82'},
+  {id:'inactive', label:'לא פעיל', color:'#9CA9A8'},
+];
+const TASK_PRIORITIES = [
+  {id:'low', label:'נמוכה', color:'#8AA6A3'},
+  {id:'medium', label:'בינונית', color:'#4C9AA6'},
+  {id:'high', label:'גבוהה', color:'#D98B3B'},
+  {id:'urgent', label:'דחופה', color:'#C1503F'},
+];
+const SESSION_STATUSES = {
+  scheduled:{label:'מתוזמן', color:'#4C9AA6'}, completed:{label:'הושלם', color:'#3C8A5B'},
+  postponed:{label:'נדחה', color:'#D98B3B'},
+  cancelled:{label:'בוטל', color:'#9CA9A8'}, 'no-show':{label:'לא הגיע', color:'#C1503F'},
+};
+const WEEKDAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const WEEKDAYS_SHORT = ['א','ב','ג','ד','ה','ו','ש'];
+const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+/* ============================== STATE ============================== */
+const S = {
+  me: null, deviceId: null,
+  db: null, assets: null, downloads:null, dbReady:false, dbAvailable:null,
+  clients:[], programs:[], sessions:[], tasks:[], activityLogs:[], team:[], org:{name:'הקליניקה שלי'},
+  route:'#/dashboard',
+  theme: localStorage.getItem('theme') || 'auto',
+  calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  calSelected: ymd(new Date()),
+  clientFilter: '', clientSearch:'',
+  taskView: 'list', taskFilter:'all',
+  notifOpen:false, userMenuOpen:false,
+  lastSeenNotif: Number(localStorage.getItem('lastSeenNotif')||0),
+  deferredInstall: null,
+  lastMediaIndex: null,
+};
+
+function uid(){ return 'id-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+function ymd(d){ const dt = (typeof d==='string')? new Date(d) : d; return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtDate(s){ if(!s) return ''; const d=new Date(s); if(isNaN(d)) return s; return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`; }
+function fmtDateShort(s){ if(!s) return ''; const d=new Date(s); if(isNaN(d)) return s; return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`; }
+function fmtDateTime(ms){ if(!ms) return ''; const d=new Date(ms); if(isNaN(d)) return ''; return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+function isoToDMY(iso){ if(!iso) return ''; const parts = String(iso).slice(0,10).split('-'); if(parts.length!==3) return ''; const [y,m,d] = parts; if(!y||!m||!d) return ''; return `${d}/${m}/${y}`; }
+function isValidDMY(dmy){
+  const m = String(dmy||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return false;
+  const d=+m[1], mo=+m[2], y=+m[3];
+  if(mo<1||mo>12) return false;
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  return d>=1 && d<=daysInMonth;
+}
+function dmyToIso(dmy){
+  if(!dmy || !dmy.trim()) return '';
+  if(!isValidDMY(dmy)) return null; // null = invalid (distinct from '' = empty)
+  const [d,mo,y] = dmy.trim().split('/');
+  return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+/** Attaches an auto-slash-inserting mask to a DD/MM/YYYY text input. */
+function attachDateMask(input){
+  if(!input) return;
+  input.addEventListener('input', ()=>{
+    let digits = input.value.replace(/[^\d]/g,'').slice(0,8);
+    let out = digits;
+    if(digits.length>4) out = digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
+    else if(digits.length>2) out = digits.slice(0,2)+'/'+digits.slice(2);
+    input.value = out;
+  });
+}
+/** Reads a DD/MM/YYYY field from a form by name; returns '' if empty,
+ *  the ISO date if valid, or throws a user-facing message if invalid. */
+function readDMYField(fd, name, label){
+  const raw = (fd.get(name)||'').toString();
+  if(!raw.trim()) return '';
+  const iso = dmyToIso(raw);
+  if(iso===null) throw new Error(`תאריך "${label}" אינו תקין — השתמשו בפורמט DD/MM/YYYY`);
+  return iso;
+}
+function waLink(phone){
+  if(!phone) return '';
+  let digits = String(phone).replace(/\D/g,'');
+  if(!digits) return '';
+  if(digits.startsWith('0')) digits = '972' + digits.slice(1); // assume Israeli local numbers
+  return `https://wa.me/${digits}`;
+}
+/** Opens the device's native share sheet (WhatsApp, Mail, etc. all appear
+ *  there on Android) with the actual file attached, when supported;
+ *  otherwise falls back to opening the file so the user can save/forward
+ *  it manually. There's no way for a web page to push a file straight
+ *  into WhatsApp without going through this native picker. */
+/** Opens the device's native share sheet (WhatsApp, Mail, and every other
+ *  app that registers as a share target all show up there) with a link
+ *  to the file. IMPORTANT: this must call navigator.share() immediately
+ *  in the same click handler with no `await` before it — browsers only
+ *  allow the Web Share API while it's still clearly "triggered by the
+ *  user's tap", and doing a fetch() first (to attach the raw file bytes)
+ *  reliably breaks that and silently falls back to nothing happening or
+ *  just opening the file. Sharing the link is not a compromise — the
+ *  download URL already grants the recipient access, so it opens/plays
+ *  correctly on their end without needing to be signed in.
+ */
+async function shareFileToDevice(url, filename){
+  if(navigator.share){
+    try{ await navigator.share({title: filename, url}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; /* user closed the sheet */ }
+  }
+  window.open(url, '_blank');
+}
+function emailFile(url, filename){
+  const subject = encodeURIComponent('קובץ מהאפליקציה — '+filename);
+  const body = encodeURIComponent('שלום,\n\nהנה קישור לקובץ:\n'+url+'\n');
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+}
+/** Binds any [data-share-file]/[data-email-file] buttons found under root
+ *  (or the whole document if root is omitted) — reused across the media
+ *  tab and the per-program gallery. */
+function bindShareButtons(root){
+  (root||document).querySelectorAll('[data-share-file]').forEach(el=>el.addEventListener('click', ()=>{
+    shareFileToDevice(el.getAttribute('data-share-file'), el.getAttribute('data-share-name')||'file');
+  }));
+  (root||document).querySelectorAll('[data-email-file]').forEach(el=>el.addEventListener('click', ()=>{
+    emailFile(el.getAttribute('data-email-file'), el.getAttribute('data-email-name')||'file');
+  }));
+}
+function statusInfo(list,id){ return list.find(x=>x.id===id) || list[0]; }
+function toast(msg){
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = 'toast fade-in';
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2200);
+}
+
+/* ============================== THEME ============================== */
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', S.theme==='auto' ? 'auto-x' : S.theme);
+  if(S.theme==='light') document.documentElement.setAttribute('data-theme','light');
+  else if(S.theme==='dark') document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+}
+function toggleTheme(){
+  const cur = S.theme;
+  S.theme = cur==='dark' ? 'light' : cur==='light' ? 'auto' : 'dark';
+  localStorage.setItem('theme', S.theme);
+  applyTheme(); render();
+}
+applyTheme();
+
+/* ============================== DB LAYER ============================== */
+/* ============================== FIREBASE CONFIG ==============================
+ * Fill this in with YOUR OWN Firebase project's config (Firebase console →
+ * Project settings → General → "Your apps" → SDK setup and configuration).
+ * See README.md in this project for the full step-by-step setup. */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
+};
+function firebaseIsConfigured(){ return !!(firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('YOUR_')); }
+
+/** Wraps Firebase Storage to match the {upload(file[,opts]), delete(id)}
+ *  shape this app already calls everywhere (upload returns {id, url}). */
+function makeStorageAssets(storageRoot){
+  return {
+    upload: async (file, opts) => {
+      const safeName = (file.name||'file').replace(/[^\w.\-]+/g,'_');
+      const path = `uploads/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
+      const ref = storageRoot.ref().child(path);
+      const metadata = (opts && opts.type) ? {contentType: opts.type} : undefined;
+      await ref.put(file, metadata);
+      const url = await ref.getDownloadURL();
+      return {id: path, url};
+    },
+    delete: async (id) => { try{ await storageRoot.ref().child(id).delete(); }catch(e){} },
+  };
+}
+/** Real browser download (works normally on a real hosted domain — unlike
+ *  inside a sandboxed artifact iframe, so no special capability is needed). */
+function makeLocalDownloads(){
+  return {
+    save: async ({filename, data}) => {
+      const blob = (data instanceof Blob) ? data : new Blob([data], {type: /\.json$/i.test(filename) ? 'application/json' : 'application/octet-stream'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      return {filename};
+    },
+  };
+}
+async function initCapabilities(){
+  S.downloads = makeLocalDownloads(); // always available on a real hosted page
+  if(!firebaseIsConfigured()){
+    S.db = null; S.assets = null; S.dbAvailable = false; S.dbReady = true; render();
+    return;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    await firebase.auth().signInAnonymously();
+    S.db = firebase.firestore();
+    S.assets = makeStorageAssets(firebase.storage());
+  }catch(e){ console.error('Firebase init failed', e); S.db = null; S.assets = null; }
+  S.dbAvailable = !!S.db;
+  if(S.db){ subscribeAll(); }
+  S.dbReady = true;
+  render();
+}
+
+function subscribeAll(){
+  const subs = [
+    ['clients','clients'], ['programs','programs'], ['sessions','sessions'],
+    ['tasks','tasks'], ['activityLogs','activity_logs'], ['team','team'],
+  ];
+  subs.forEach(([key,col])=>{
+    S.db.collection(col).onSnapshot(snap=>{
+      S[key] = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      render();
+    }, err=>{ console.warn('snapshot error', col, err); });
+  });
+  S.db.doc('org/main').onSnapshot(snap=>{
+    if(snap.exists) S.org = {name:'הקליניקה שלי', ...snap.data()};
+    render();
+  });
+}
+
+async function dbAdd(col, data){
+  if(!S.db){ toast('אין חיבור לסנכרון בתצוגה הזו'); return null; }
+  const ref = await S.db.collection(col).add({...data, created_at: Date.now(), created_by: S.me?.name||'—'});
+  logActivity(data.client_id, `נוצר: ${col}`);
+  return ref;
+}
+async function dbSet(col,id,data){ if(!S.db) return; await S.db.collection(col).doc(id).set(data); }
+async function dbUpdate(col,id,data){ if(!S.db){ toast('אין חיבור לסנכרון'); return; } await S.db.collection(col).doc(id).update(data); }
+async function dbDelete(col,id){ if(!S.db) return; await S.db.collection(col).doc(id).delete(); }
+async function logActivity(client_id, action){
+  if(!S.db || !client_id) return;
+  try{ await S.db.collection('activity_logs').add({client_id, action, actor:S.me?.name||'—', at:Date.now()}); }catch(e){}
+}
+
+/* ============================== EXPORT / IMPORT ============================== */
+function buildExportPayload(){
+  return {
+    format:'mindflow-export', version:1, exported_at:new Date().toISOString(),
+    org:S.org, clients:S.clients, programs:S.programs, sessions:S.sessions,
+    tasks:S.tasks, activity_logs:S.activityLogs, team:S.team,
+  };
+}
+async function exportJson(){
+  if(!S.downloads){ toast('יש להגדיר קודם Firebase (ראו README.md) כדי לייצא נתונים'); return; }
+  try{
+    await S.downloads.save({ filename:`ייצוא-נתונים-${todayIso()}.json`, data: JSON.stringify(buildExportPayload(), null, 2) });
+    toast('הקובץ נשמר');
+  }catch(e){ if(e && e.code!=='declined') toast('הייצוא נכשל: '+(e.message||e.code||'')); }
+}
+async function exportZip(){
+  if(!S.downloads){ toast('יש להגדיר קודם Firebase (ראו README.md) כדי לייצא נתונים'); return; }
+  if(!window.JSZip){ toast('ספריית ה-ZIP לא נטענה, נסו לרענן'); return; }
+  toast('מכין קובץ ZIP…');
+  try{
+    const zip = new JSZip();
+    const payload = buildExportPayload();
+    const clientsCopy = JSON.parse(JSON.stringify(payload.clients));
+    for(const c of clientsCopy){
+      if(c.gallery && c.gallery.length){
+        for(let i=0;i<c.gallery.length;i++){
+          const g = c.gallery[i];
+          try{
+            const resp = await fetch(g.url); const blob = await resp.blob();
+            const ext = (blob.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+            const fname = `images/${c.id}_${i}.${ext}`;
+            zip.file(fname, blob);
+            g.zip_file = fname;
+          }catch(e){ /* skip image that failed to fetch */ }
+        }
+      }
+    }
+    payload.clients = clientsCopy;
+    zip.file('data.json', JSON.stringify(payload, null, 2));
+    const blob = await zip.generateAsync({type:'blob'});
+    await S.downloads.save({ filename:`ייצוא-נתונים-${todayIso()}.zip`, data: blob });
+    toast('הקובץ נשמר');
+  }catch(e){ if(e && e.code!=='declined') toast('הייצוא נכשל: '+(e.message||e.code||'')); }
+}
+async function handleImportFile(file){
+  if(!S.db){ toast('אין חיבור ל-Firebase - יש להגדיר firebaseConfig קודם (ראו README.md)'); return; }
+  try{
+    let payload, zip = null, mediaIndex = null;
+    if(/\.zip$/i.test(file.name)){
+      if(!window.JSZip){ toast('ספריית ה-ZIP לא נטענה, נסו לרענן'); return; }
+      zip = await JSZip.loadAsync(file);
+      const jsonNames = Object.keys(zip.files).filter(n=>/\.json$/i.test(n) && !zip.files[n].dir);
+      if(jsonNames.length===0){ toast('לא נמצא קובץ JSON בתוך קובץ ה-ZIP'); return; }
+      const findEntry = suffix => jsonNames.find(n=>n.toLowerCase().endsWith(suffix));
+
+      // Case C: a multi-table export (data/clients.json, data/programs.json, ...)
+      const clientsFile = findEntry('data/clients.json');
+      if(clientsFile){
+        const readJson = async name => { try{ return JSON.parse(await zip.file(name).async('text')); }catch(e){ return null; } };
+        const clients = await readJson(clientsFile);
+        const programs = await readJson(findEntry('data/programs.json') || '') || [];
+        const sessions = await readJson(findEntry('data/sessions.json') || '') || [];
+        const tasks = await readJson(findEntry('data/tasks.json') || '') || [];
+        const activityLogs = await readJson(findEntry('data/activity_logs.json') || '') || [];
+        const mediaIdx = await readJson(findEntry('data/media_index.json') || '') || [];
+        const profiles = await readJson(findEntry('data/profiles.json') || '') || [];
+        mediaIndex = [...(Array.isArray(mediaIdx)?mediaIdx:[]), ...(Array.isArray(profiles)?profiles:[])];
+        if(mediaIndex.length) S.lastMediaIndex = mediaIndex;
+        const converted = convertExternalBackup({clients: clients||[], programs, sessions, tasks, activityLogs}, mediaIndex);
+        await runImport(converted, zip, {external:true, mediaIndex});
+        return;
+      }
+
+      // Case A/B: one combined export file (our own, or another single-file external backup)
+      let mainName = jsonNames.find(n=>/data\.json$/i.test(n)) || jsonNames.find(n=>/backup\.json$/i.test(n)) || jsonNames[0];
+      payload = JSON.parse(await zip.file(mainName).async('text'));
+      const otherName = jsonNames.find(n=>n!==mainName);
+      if(otherName){ try{ mediaIndex = JSON.parse(await zip.file(otherName).async('text')); if(Array.isArray(mediaIndex)) S.lastMediaIndex = mediaIndex; }catch(e){ mediaIndex=null; } }
+    } else {
+      payload = JSON.parse(await file.text());
+    }
+
+    const isNative = payload && payload.format === 'mindflow-export';
+    const looksExternal = payload && Array.isArray(payload.clients) && payload.clients.length>0 &&
+      ('organization_id' in payload.clients[0] || Array.isArray(payload.programs) || Array.isArray(payload.activityLogs));
+
+    if(isNative){
+      await runImport(payload, zip, {external:false});
+    } else if(looksExternal){
+      const converted = convertExternalBackup(payload, mediaIndex);
+      await runImport(converted, zip, {external:true, mediaIndex});
+    } else {
+      toast('מבנה הקובץ אינו מוכר — לא ניתן לייבא');
+    }
+  }catch(e){ console.error(e); toast('קובץ לא תקין — הייבוא נכשל'); }
+}
+
+/** Maps an export from the external Kabbalah-CRM-style app (clients/programs/
+ *  sessions/tasks/activityLogs with organization_id, uuid assigned_to, etc.)
+ *  into this app's internal shape. */
+function convertExternalBackup(data, mediaIndex){
+  const profiles = {};
+  if(Array.isArray(mediaIndex)) mediaIndex.forEach(x=>{ if(x && x.full_name && x.email && x.id) profiles[x.id]=x.full_name; });
+  const nameFor = uuid => uuid ? (profiles[uuid]||'') : '';
+  const dateOnly = s => s ? String(s).slice(0,10) : '';
+  const timeOnly = s => { if(!s) return ''; const t = String(s).includes('T')? String(s).split('T')[1] : s; return t.slice(0,5); };
+  const actionLabels = {program_created:'תוכנית נוצרה', program_updated:'תוכנית עודכנה', session_completed:'סשן הושלם', live_reading:'קריאה חיה', client_created:'לקוח נוצר', client_updated:'לקוח עודכן'};
+
+  const clients = (data.clients||[]).map(c=>({
+    id:c.id, full_name:c.full_name||'ללא שם', phone:c.phone||'', email:c.email||'',
+    status: ['lead','consultation','active','inactive'].includes(c.status) ? c.status : 'lead',
+    date_of_birth: dateOnly(c.date_of_birth), mother_name:c.mother_name||'',
+    selected_reading:c.selected_reading||'', partner_full_name:c.partner_full_name||'',
+    partner_dob: dateOnly(c.partner_dob), partner_mother_name:c.partner_mother_name||'',
+    assigned_to: nameFor(c.assigned_to), notes:c.notes||'', address:c.address||'', gallery:[], audio_links:[],
+  }));
+  const programs = (data.programs||[]).map(p=>({
+    id:p.id, client_id:p.client_id||'', total_sessions: p.total_sessions||1,
+    weekly_days: Array.isArray(p.weekly_days)? p.weekly_days : [],
+    session_time: (p.session_time || (Array.isArray(p.session_times)&&p.session_times[0]) || '').slice(0,5),
+    start_date: dateOnly(p.start_date), status: p.status||'active', assigned_to: nameFor(p.assigned_to),
+  }));
+  const sessions = (data.sessions||[]).map(s=>({
+    id:s.id, program_id:s.program_id||'', client_id:s.client_id||'',
+    session_date: dateOnly(s.session_date), session_time: timeOnly(s.session_date),
+    status: Object.keys(SESSION_STATUSES).includes(s.status) ? s.status : 'scheduled',
+    notes: s.notes||'', assigned_to: nameFor(s.assigned_to), images:[],
+  }));
+  const tasks = (data.tasks||[]).map(t=>({
+    id:t.id, title:t.title||'משימה', description:t.description||'',
+    priority: TASK_PRIORITIES.some(p=>p.id===t.priority) ? t.priority : 'medium',
+    status: t.status==='done' ? 'done' : 'todo', due_date: dateOnly(t.due_date),
+    client_id: t.client_id||'', assigned_to: nameFor(t.assigned_to),
+  }));
+  const activity_logs = (data.activityLogs||[]).map(a=>({
+    client_id:a.client_id||'', action: actionLabels[a.action] || a.action || 'פעולה',
+    actor: nameFor(a.user_id) || 'מערכת חיצונית', at: a.created_at ? new Date(a.created_at).getTime() : Date.now(),
+  }));
+  return {format:'mindflow-export', source:'external', clients, programs, sessions, tasks, activity_logs, team:[]};
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function addWithRetry(col, data){
+  for(let attempt=0; attempt<4; attempt++){
+    try{ return await S.db.collection(col).add(data); }
+    catch(e){
+      if(e && (e.code==='resource_exhausted' || e.code==='unavailable') && attempt<3){ await sleep(350*(attempt+1)); continue; }
+      throw e;
+    }
+  }
+}
+
+function showImportProgress(){
+  showModal(`<div class="p-6 text-center" data-no-close="1">
+    <div class="font-bold mb-3">מייבא נתונים…</div>
+    <div style="background:var(--surface-2); border-radius:99px; overflow:hidden; height:10px;">
+      <div id="import-bar" style="background:var(--primary); height:100%; width:2%; transition:width .15s;"></div>
+    </div>
+    <div id="import-txt" style="margin-top:10px; color:var(--text-muted); font-size:13px;">מתחיל…</div>
+  </div>`);
+}
+function updateImportProgress(done, total, label){
+  const bar = document.getElementById('import-bar'); const txt = document.getElementById('import-txt');
+  if(bar) bar.style.width = Math.max(2, Math.round(done/Math.max(total,1)*100))+'%';
+  if(txt) txt.textContent = `${label} · ${done} / ${total}`;
+}
+
+/** Runs the actual import (used for both our own re-imported exports and
+ *  converted external backups, both normalized to the same internal shape). */
+async function runImport(payload, zip, opts){
+  if(!payload || !Array.isArray(payload.clients)){ toast('מבנה הקובץ אינו תואם למערכת'); return; }
+  const nProg = (payload.programs||[]).length, nSess = (payload.sessions||[]).length,
+        nTask = (payload.tasks||[]).length, nLog = (payload.activity_logs||[]).length;
+  const summary = `${payload.clients.length} לקוחות, ${nProg} תוכניות, ${nSess} סשנים, ${nTask} משימות${nLog?`, ${nLog} רשומות יומן פעילות`:''}`;
+  const originNote = opts.external ? '\n\n(זוהה כקובץ גיבוי מאפליקציה חיצונית — השדות יותאמו אוטומטית. שיוך אנשי צוות ישוחזר רק אם שמם נמצא בקובץ.)' : '';
+  if(!(await askConfirm(`לייבא ${summary}?${originNote}\n\nהפעולה מוסיפה נתונים חדשים ואינה מוחקת נתונים קיימים.`, {title:'ייבוא נתונים'}))) return;
+
+  const total = payload.clients.length + nProg + nSess + nTask + nLog;
+  let done = 0;
+  showImportProgress();
+  const typeMap = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp'};
+  const clientIdMap = {}, programIdMap = {};
+  let skippedMedia = 0;
+
+  try{
+    for(const c of payload.clients){
+      const {id, gallery, ...rest} = c;
+      let newGallery = [];
+      if(zip && S.assets && gallery && gallery.length){
+        for(const g of gallery){
+          if(!g.zip_file) continue;
+          try{
+            const fileEntry = zip.file(g.zip_file);
+            if(!fileEntry) continue;
+            const blob = await fileEntry.async('blob');
+            const ext = g.zip_file.split('.').pop().toLowerCase();
+            const res = await S.assets.upload(blob, {type: typeMap[ext] || 'image/jpeg'});
+            newGallery.push({id:res.id, url:res.url});
+          }catch(e){ skippedMedia++; }
+        }
+      }
+      // external-format image attachment via a separate media index catalog
+      if(opts.external && zip && S.assets && Array.isArray(opts.mediaIndex)){
+        const matches = opts.mediaIndex.filter(m=>m && m.kind==='image' && m.client_id===id && m.zip_path);
+        for(const m of matches){
+          try{
+            const fileEntry = zip.file(m.zip_path);
+            if(!fileEntry) continue;
+            const blob = await fileEntry.async('blob');
+            const res = await S.assets.upload(blob, {type: m.mime_type && !m.mime_type.includes(';') ? m.mime_type : undefined});
+            newGallery.push({id:res.id, url:res.url});
+          }catch(e){ skippedMedia++; }
+        }
+      }
+      const ref = await addWithRetry('clients', {...rest, gallery:newGallery, created_at:Date.now(), created_by:S.me?.name||'—'});
+      if(id) clientIdMap[id] = ref.id;
+      done++; updateImportProgress(done, total, 'לקוחות');
+    }
+    for(const p of (payload.programs||[])){
+      const {id, client_id, ...rest} = p;
+      const ref = await addWithRetry('programs', {...rest, client_id: clientIdMap[client_id]||client_id||'', created_at:Date.now(), created_by:S.me?.name||'—'});
+      if(id) programIdMap[id] = ref.id;
+      done++; updateImportProgress(done, total, 'תוכניות');
+    }
+    for(const s of (payload.sessions||[])){
+      const {id, client_id, program_id, ...rest} = s;
+      await addWithRetry('sessions', {...rest, client_id: clientIdMap[client_id]||client_id||'', program_id: programIdMap[program_id]||program_id||'', created_at:Date.now(), created_by:S.me?.name||'—'});
+      done++; if(done%5===0 || done===total) updateImportProgress(done, total, 'סשנים');
+    }
+    for(const t of (payload.tasks||[])){
+      const {id, client_id, ...rest} = t;
+      await addWithRetry('tasks', {...rest, client_id: client_id ? (clientIdMap[client_id]||client_id) : '', created_at:Date.now(), created_by:S.me?.name||'—'});
+      done++; updateImportProgress(done, total, 'משימות');
+    }
+    for(const l of (payload.activity_logs||[])){
+      const {client_id, ...rest} = l;
+      await addWithRetry('activity_logs', {...rest, client_id: client_id ? (clientIdMap[client_id]||client_id) : ''});
+      done++; if(done%5===0 || done===total) updateImportProgress(done, total, 'יומן פעילות');
+    }
+    closeModal();
+    toast(skippedMedia ? `הייבוא הושלם 🎉 (${skippedMedia} קבצי מדיה לא יובאו)` : 'הייבוא הושלם בהצלחה 🎉');
+  }catch(e){ console.error(e); closeModal(); toast('אירעה שגיאה באמצע הייבוא — חלק מהנתונים כבר נשמרו'); }
+  render();
+}
+
+/* ============================== BULK MEDIA FOLDER IMPORT ============================== */
+async function handleMediaMapFile(file){
+  try{
+    const payload = JSON.parse(await file.text());
+    if(Array.isArray(payload)){ S.lastMediaIndex = payload; toast(`מיפוי מדיה נטען (${payload.length} רשומות)`); render(); }
+    else toast('הקובץ אינו רשימת מיפוי מדיה תקינה (מצופה מערך JSON)');
+  }catch(e){ toast('שגיאה בקריאת קובץ המיפוי'); }
+}
+
+const UPLOAD_TYPE_BY_EXT = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',mp4:'video/mp4',webm:'video/webm',pdf:'application/pdf'};
+function resolveUploadType(file){
+  const ACCEPTED = ['image/png','image/jpeg','image/gif','image/webp','image/svg+xml','video/mp4','video/webm','application/pdf'];
+  if(file.type && ACCEPTED.includes(file.type)) return file.type;
+  const ext = file.name.split('.').pop().toLowerCase();
+  return UPLOAD_TYPE_BY_EXT[ext] || null;
+}
+/** Best-effort match of an uploaded file to a client id, using (in order):
+ *  an exact suffix match against a loaded media-index catalog's zip_path,
+ *  a filename match against that catalog, a UUID found in the file's path,
+ *  a client-id-prefix folder pattern ("name__abcd1234"), or a folder/file
+ *  name that equals a client's full name exactly. */
+function matchClientForFile(file){
+  const relPath = (file.webkitRelativePath || file.name).replace(/\\/g,'/');
+  const baseName = file.name;
+  if(Array.isArray(S.lastMediaIndex)){
+    let hit = S.lastMediaIndex.find(m=>m && m.zip_path && relPath.endsWith(m.zip_path));
+    if(!hit) hit = S.lastMediaIndex.find(m=>m && (m.file_name===baseName || m.original_file_name===baseName || m.name===baseName));
+    if(hit){
+      if(hit.client_id && clientById(hit.client_id)) return hit.client_id;
+      if(hit.entityId && clientById(hit.entityId)) return hit.entityId;
+    }
+  }
+  const uuidMatch = relPath.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if(uuidMatch){
+    const full = uuidMatch[0].toLowerCase();
+    const c = S.clients.find(c=>c.id && c.id.toLowerCase()===full) || S.clients.find(c=>c.id && c.id.toLowerCase().startsWith(full.slice(0,8)));
+    if(c) return c.id;
+  }
+  const segMatch = relPath.match(/__([0-9a-f]{6,8})/i);
+  if(segMatch){
+    const c = S.clients.find(c=>c.id && c.id.toLowerCase().startsWith(segMatch[1].toLowerCase()));
+    if(c) return c.id;
+  }
+  for(const part of relPath.split('/')){
+    const nameGuess = part.split('__')[0].trim();
+    if(nameGuess.length<2) continue;
+    const c = S.clients.find(c=>c.full_name && c.full_name===nameGuess);
+    if(c) return c.id;
+  }
+  return null;
+}
+async function uploadWithRetry(file, type){
+  for(let attempt=0; attempt<4; attempt++){
+    try{ return await S.assets.upload(file, type?{type}:undefined); }
+    catch(e){
+      if(e && (e.code==='rate_limited' || e.code==='store_unavailable') && attempt<3){ await sleep(400*(attempt+1)); continue; }
+      throw e;
+    }
+  }
+}
+async function handleMediaFolder(fileList){
+  if(!S.assets){ toast('העלאת קבצים לא זמינה - יש להגדיר Firebase Storage קודם (ראו README.md)'); return; }
+  const files = Array.from(fileList||[]);
+  if(!files.length) return;
+  const matched = [], unmatched = [], unsupported = [];
+  for(const f of files){
+    const type = resolveUploadType(f);
+    if(!type){ unsupported.push(f); continue; }
+    const clientId = matchClientForFile(f);
+    if(!clientId){ unmatched.push(f); continue; }
+    matched.push({file:f, type, clientId});
+  }
+  const parts = [];
+  if(unmatched.length) parts.push(`${unmatched.length} קבצים לא זוהו`);
+  if(unsupported.length) parts.push(`${unsupported.length} קבצים בפורמט לא נתמך (כולל אודיו)`);
+  if(matched.length===0){ toast(`לא הועלה כלום. ${parts.join(', ')||'לא נמצאו קבצים תואמים'}.`); return; }
+  const clientCount = new Set(matched.map(m=>m.clientId)).size;
+  if(!(await askConfirm(`נמצאה התאמה ל-${matched.length} מתוך ${files.length} קבצים, עבור ${clientCount} לקוחות.${parts.length? '\n'+parts.join(', ')+' ולא יועלו.':''}\n\nלהמשיך בהעלאה?`, {title:'ייבוא מדיה'}))) return;
+
+  showImportProgress(); let done=0; let failed=0;
+  const galleryAdds = {};
+  for(const {file, type, clientId} of matched){
+    try{
+      const res = await uploadWithRetry(file, type);
+      (galleryAdds[clientId] ||= []).push({id:res.id, url:res.url});
+    }catch(e){ failed++; }
+    done++; updateImportProgress(done, matched.length, 'קבצי מדיה');
+  }
+  for(const [clientId, adds] of Object.entries(galleryAdds)){
+    const c = clientById(clientId);
+    const gallery = [...((c&&c.gallery)||[]), ...adds];
+    try{ await dbUpdate('clients', clientId, {gallery}); }catch(e){}
+  }
+  closeModal();
+  toast(`הועלו ${matched.length-failed} קבצים ל-${Object.keys(galleryAdds).length} לקוחות${failed?` (${failed} נכשלו)`:''}`);
+  render();
+}
+
+/* ============================== ONBOARDING / IDENTITY ============================== */
+function loadIdentity(){
+  S.deviceId = localStorage.getItem('deviceId');
+  if(!S.deviceId){ S.deviceId = uid(); localStorage.setItem('deviceId', S.deviceId); }
+  const name = localStorage.getItem('displayName');
+  if(name) S.me = {name, id:S.deviceId};
+}
+async function setIdentity(name){
+  S.me = {name, id:S.deviceId};
+  localStorage.setItem('displayName', name);
+  if(S.db){
+    try{ await S.db.collection('team').doc(S.deviceId).set({name, lastSeen: Date.now()}); }catch(e){}
+  }
+  render();
+  checkIncomingShare();
+}
+function touchPresence(){
+  if(S.db && S.me){ S.db.collection('team').doc(S.deviceId).set({name:S.me.name, lastSeen: Date.now()}).catch(()=>{}); }
+}
+
+/* ============================== ROUTER ============================== */
+window.addEventListener('hashchange', ()=>{ S.route = location.hash || '#/dashboard'; render(); });
+
+function go(route){ location.hash = route; }
+
+/* ============================== DERIVED HELPERS ============================== */
+function clientById(id){ return S.clients.find(c=>c.id===id); }
+function programsForClient(id){ return S.programs.filter(p=>p.client_id===id).sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||'')); }
+function sessionsForProgram(id){ return S.sessions.filter(s=>s.program_id===id).sort((a,b)=>(a.session_date||'').localeCompare(b.session_date||'')); }
+function sessionsForClient(id){ return S.sessions.filter(s=>s.client_id===id).sort((a,b)=>(a.session_date||'').localeCompare(b.session_date||'')); }
+function tasksForClient(id){ return S.tasks.filter(t=>t.client_id===id); }
+function logsForClient(id){ return S.activityLogs.filter(l=>l.client_id===id).sort((a,b)=>b.at-a.at).slice(0,25); }
+function teamNames(){ const names = new Set(S.team.map(t=>t.name)); if(S.me) names.add(S.me.name); return Array.from(names).sort(); }
+
+function computeSessionDates(startDate, weeklyDays, total, perDay=1){
+  const dates=[]; let d = new Date(startDate+'T00:00:00'); let guard=0;
+  perDay = Math.min(7, Math.max(1, perDay||1));
+  while(dates.length < total && guard < 3000){
+    if(weeklyDays.includes(d.getDay())){
+      for(let i=0; i<perDay && dates.length<total; i++) dates.push(new Date(d));
+    }
+    d.setDate(d.getDate()+1); guard++;
+  }
+  return dates;
+}
+/** Expands (startDate, weeklyDays, count, perDay) into concrete
+ *  {session_date, session_time} slots, cycling through `times` for the
+ *  Nth session within each matching day (so a 2-per-day program can have
+ *  a morning time and an evening time instead of one time for both). */
+function buildSessionSlots(startDate, weeklyDays, count, perDay, times){
+  const dates = computeSessionDates(startDate, weeklyDays, count, perDay);
+  const p = Math.min(7, Math.max(1, perDay||1));
+  const dayCounter = {};
+  return dates.map(d=>{
+    const iso = ymd(d);
+    dayCounter[iso] = dayCounter[iso]||0;
+    const slotIdx = dayCounter[iso] % p;
+    const t = (times && (times[slotIdx]||times[0])) || '';
+    dayCounter[iso]++;
+    return {session_date: iso, session_time: t};
+  });
+}
+async function generateSessionsForProgram(program, ref){
+  const times = (program.session_times&&program.session_times.length) ? program.session_times : [program.session_time||''];
+  const slots = buildSessionSlots(program.start_date, program.weekly_days, program.total_sessions, program.sessions_per_day, times);
+  for(const slot of slots){
+    await S.db.collection('sessions').add({
+      program_id: ref.id, client_id: program.client_id,
+      session_date: slot.session_date, session_time: slot.session_time,
+      status:'scheduled', notes:'', images:[], assigned_to: program.assigned_to||'',
+      created_at: Date.now(), created_by: S.me?.name||'—',
+    });
+  }
+}
+/** Used when editing a program with "regenerate" checked: wipes every
+ *  not-yet-completed session for it and rebuilds the schedule from the
+ *  (possibly changed) parameters, leaving completed sessions untouched. */
+async function regenerateProgramSessions(program){
+  const existing = sessionsForProgram(program.id);
+  const completedCount = existing.filter(s=>s.status==='completed').length;
+  for(const s of existing){ if(s.status!=='completed') await dbDelete('sessions', s.id); }
+  const remaining = Math.max(0, program.total_sessions - completedCount);
+  if(remaining<=0) return;
+  const times = (program.session_times&&program.session_times.length) ? program.session_times : [program.session_time||''];
+  const slots = buildSessionSlots(program.start_date, program.weekly_days, remaining, program.sessions_per_day, times);
+  for(const slot of slots){
+    await S.db.collection('sessions').add({
+      program_id: program.id, client_id: program.client_id,
+      session_date: slot.session_date, session_time: slot.session_time,
+      status:'scheduled', notes:'', images:[], assigned_to: program.assigned_to||'',
+      created_at: Date.now(), created_by: S.me?.name||'—',
+    });
+  }
+}
+
+function todayIso(){ return ymd(new Date()); }
+function isTodaySession(s){ return s.session_date === todayIso(); }
+
+function myNotifications(){
+  const items = [];
+  S.tasks.filter(t=>t.assigned_to===S.me?.name && t.status!=='done').forEach(t=>{
+    items.push({at:t.created_at||0, text:`משימה חדשה: ${t.title}`, id:'task-'+t.id, route:'#/tasks'});
+  });
+  S.sessions.filter(s=>s.assigned_to===S.me?.name).forEach(s=>{
+    items.push({at:s.created_at||0, text:`סשן שובץ אליך בתאריך ${fmtDateShort(s.session_date)}`, id:'sess-'+s.id, route:'#/calendar'});
+  });
+  return items.sort((a,b)=>b.at-a.at).slice(0,20);
+}
+function unreadNotifCount(){ return myNotifications().filter(n=>n.at > S.lastSeenNotif).length; }
+
+/* ============================== RENDER: SHELL ============================== */
+function render(){
+  const root = document.getElementById('app');
+  if(!S.dbReady){ root.innerHTML = renderSplash(); return; }
+  if(!S.me){ root.innerHTML = renderOnboarding(); bindOnboarding(); return; }
+  touchPresence.__once = touchPresence.__once || setInterval(touchPresence, 60000);
+
+  root.innerHTML = `
+    <div class="min-h-screen flex flex-col md:flex-row" style="min-height:100vh;">
+      ${renderSidebar()}
+      <div class="flex-1 flex flex-col min-w-0">
+        ${renderTopbar()}
+        <main class="flex-1 px-4 md:px-8 py-5 pb-28 md:pb-8 max-w-6xl w-full mx-auto">
+          ${renderRoute()}
+        </main>
+      </div>
+      ${renderBottomNav()}
+    </div>
+  `;
+  bindGlobal();
+  bindRoute();
+}
+
+function renderSplash(){
+  return `<div class="min-h-screen flex items-center justify-center" style="min-height:100vh;">
+    <div class="flex flex-col items-center gap-3" style="color:var(--primary)">
+      ${icon('sparkle',34)}
+      <div style="color:var(--text-muted); font-size:14px; font-weight:600;">טוען את מיינד־פלואו…</div>
+    </div>
+  </div>`;
+}
+
+function renderOnboarding(){
+  const syncNote = S.dbAvailable===false
+    ? `<div class="flex items-start gap-2 p-3 rounded-xl" style="background:var(--warning-soft); color:var(--accent-text); font-size:13px;">${icon('wifiOff',16)}<span>האפליקציה עדיין לא מחוברת ל-Firebase. פתחו את index.html ומלאו את firebaseConfig בפרטי פרויקט Firebase משלכם (ראו README.md), ואז רעננו את הדף.</span></div>`
+    : '';
+  return `<div class="min-h-screen flex items-center justify-center px-5" style="min-height:100vh;">
+    <div class="card w-full max-w-sm p-7 fade-in">
+      <div class="flex justify-center mb-4" style="color:var(--primary)">${icon('sparkle',40)}</div>
+      <h1 class="text-center font-bold text-xl mb-1">ברוכים הבאים למיינד־פלואו</h1>
+      <p class="text-center mb-6" style="color:var(--text-muted); font-size:14px;">מערכת ניהול לקוחות ופגישות לצוות שלך. כדי להתחיל, איך קוראים לך?</p>
+      <form id="onboard-form" class="flex flex-col gap-3">
+        <input id="onboard-name" placeholder="שם מלא, למשל דנה כהן" required autofocus>
+        <button class="btn btn-primary" type="submit">כניסה לצוות ${icon('chevL',16)}</button>
+      </form>
+      ${syncNote ? `<div class="mt-4">${syncNote}</div>` : ''}
+    </div>
+  </div>`;
+}
+function bindOnboarding(){
+  const form = document.getElementById('onboard-form');
+  if(form) form.addEventListener('submit', e=>{
+    e.preventDefault();
+    const name = document.getElementById('onboard-name').value.trim();
+    if(name) setIdentity(name);
+  });
+}
+
+function renderSidebar(){
+  const items = [
+    ['#/dashboard','home','דשבורד'], ['#/clients','users','לקוחות'], ['#/calendar','calendar','יומן'],
+    ['#/tasks','tasks','משימות'], ['#/settings','settings','הגדרות'],
+  ];
+  return `<aside class="hidden md:flex flex-col gap-1 p-4 w-60 shrink-0" style="border-left:1px solid var(--border); background:var(--surface);">
+    <div class="flex items-center gap-2 px-2 py-3 mb-2">
+      <span style="color:var(--primary)">${icon('sparkle',26)}</span>
+      <div class="font-bold text-lg leading-tight">${esc(S.org.name)}</div>
+    </div>
+    ${items.map(([r,i,l])=>`
+      <div class="side-item ${S.route.startsWith(r)?'active':''}" data-go="${r}">
+        ${icon(i,19)}<span>${l}</span>
+      </div>`).join('')}
+    <div class="mt-auto px-2 py-3 flex items-center gap-2" style="color:var(--text-muted); font-size:12px;">
+      ${icon('users',14)}<span>${S.team.length || 1} אנשי צוות מחוברים</span>
+    </div>
+  </aside>`;
+}
+
+function renderTopbar(){
+  const notifs = myNotifications();
+  const unread = unreadNotifCount();
+  return `<header class="flex items-center justify-between gap-3 px-4 md:px-8 py-3 sticky top-0 z-30" style="background:var(--bg); border-bottom:1px solid var(--border);">
+    <div class="flex items-center gap-2 md:hidden">
+      <span style="color:var(--primary)">${icon('sparkle',22)}</span>
+      <div class="font-bold">${esc(S.org.name)}</div>
+    </div>
+    <div class="hidden md:block font-semibold" style="color:var(--text-muted);">${routeTitle()}</div>
+    <div class="flex items-center gap-2 relative">
+      ${S.dbAvailable===false ? `<span title="לא מסונכרן" style="color:var(--warning)">${icon('wifiOff',18)}</span>` : ''}
+      <button class="icon-btn" data-theme-toggle title="ערכת נושא">${icon(S.theme==='dark'?'moon':'sun',19)}</button>
+      <div class="relative">
+        <button class="icon-btn" data-notif-toggle style="position:relative">
+          ${icon('bell',19)}
+          ${unread>0?`<span style="position:absolute;top:5px;left:5px;width:8px;height:8px;border-radius:99px;background:var(--danger);"></span>`:''}
+        </button>
+        ${S.notifOpen ? renderNotifDropdown(notifs) : ''}
+      </div>
+      <div class="relative">
+        <button class="icon-btn" data-user-toggle style="width:auto;padding:0 8px;gap:6px;display:flex;align-items:center;">
+          <span style="width:26px;height:26px;border-radius:99px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${esc((S.me.name||'?')[0])}</span>
+        </button>
+        ${S.userMenuOpen ? renderUserMenu() : ''}
+      </div>
+    </div>
+  </header>`;
+}
+function routeTitle(){
+  if(S.route.startsWith('#/dashboard')) return 'דשבורד';
+  if(S.route.startsWith('#/clients/')) { const id=S.route.split('/')[2]; const c=clientById(id); return c? esc(c.full_name):'לקוח'; }
+  if(S.route.startsWith('#/clients')) return 'לקוחות';
+  if(S.route.startsWith('#/calendar')) return 'יומן';
+  if(S.route.startsWith('#/tasks')) return 'משימות';
+  if(S.route.startsWith('#/settings')) return 'הגדרות';
+  return '';
+}
+function renderNotifDropdown(notifs){
+  return `<div class="card p-2 fade-in scrollbar-thin" style="position:absolute; top:46px; left:0; width:300px; max-height:360px; overflow-y:auto; z-index:50;">
+    <div class="px-2 py-1.5 font-semibold text-sm">התראות</div>
+    ${notifs.length? notifs.map(n=>`
+      <div class="p-2.5 rounded-lg cursor-pointer" data-notif-go="${n.route}" style="font-size:13px; ${n.at>S.lastSeenNotif?'background:var(--primary-soft)':''}">
+        <div>${esc(n.text)}</div>
+        <div style="color:var(--text-muted); font-size:11px; margin-top:2px;">${n.at? fmtDateTime(n.at):''}</div>
+      </div>`).join('') : `<div class="empty-state" style="padding:20px;">אין התראות חדשות</div>`}
+  </div>`;
+}
+function renderUserMenu(){
+  return `<div class="card p-2 fade-in" style="position:absolute; top:46px; left:0; width:200px; z-index:50;">
+    <div class="px-2.5 py-2 font-semibold text-sm">${esc(S.me.name)}</div>
+    <div class="px-2.5 pb-2" style="color:var(--text-muted); font-size:12px;">${esc(S.org.name)}</div>
+    <div class="side-item" style="font-size:13px;" data-go="#/settings">${icon('settings',16)}<span>הגדרות</span></div>
+    ${S.deferredInstall ? `<div class="side-item" style="font-size:13px;" data-install>${icon('install',16)}<span>התקן לבית</span></div>` : ''}
+    <div class="side-item" style="font-size:13px; color:var(--danger);" data-logout>${icon('logout',16)}<span>החלף משתמש</span></div>
+  </div>`;
+}
+
+function renderBottomNav(){
+  const items = [
+    ['#/dashboard','home','דשבורד'], ['#/clients','users','לקוחות'], ['#/calendar','calendar','יומן'], ['#/tasks','tasks','משימות'],
+  ];
+  return `<nav class="md:hidden fixed bottom-0 inset-x-0 flex px-2 py-1.5 z-40" style="background:var(--surface); border-top:1px solid var(--border); padding-bottom:calc(6px + env(safe-area-inset-bottom));">
+    ${items.map(([r,i,l])=>`<div class="nav-item ${S.route.startsWith(r)?'active':''}" data-go="${r}">${icon(i,21)}<span>${l}</span></div>`).join('')}
+  </nav>`;
+}
+
+function bindGlobal(){
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click', ()=>{ S.notifOpen=false; S.userMenuOpen=false; go(el.getAttribute('data-go')); }));
+  const tt = document.querySelector('[data-theme-toggle]'); if(tt) tt.addEventListener('click', toggleTheme);
+  const nt = document.querySelector('[data-notif-toggle]'); if(nt) nt.addEventListener('click', e=>{ e.stopPropagation(); S.userMenuOpen=false; S.notifOpen=!S.notifOpen; if(S.notifOpen){ S.lastSeenNotif=Date.now(); localStorage.setItem('lastSeenNotif', S.lastSeenNotif); } render(); });
+  const ut = document.querySelector('[data-user-toggle]'); if(ut) ut.addEventListener('click', e=>{ e.stopPropagation(); S.notifOpen=false; S.userMenuOpen=!S.userMenuOpen; render(); });
+  document.querySelectorAll('[data-notif-go]').forEach(el=>el.addEventListener('click', ()=>{ S.notifOpen=false; go(el.getAttribute('data-notif-go')); }));
+  const lg = document.querySelector('[data-logout]'); if(lg) lg.addEventListener('click', async ()=>{ if(await askConfirm('להתנתק ולהחליף משתמש במכשיר זה?', {title:'החלפת משתמש'})){ localStorage.removeItem('displayName'); S.me=null; render(); } });
+  const inst = document.querySelector('[data-install]'); if(inst) inst.addEventListener('click', ()=>{ if(S.deferredInstall){ S.deferredInstall.prompt(); } });
+  document.addEventListener('click', ()=>{ if(S.notifOpen||S.userMenuOpen){ S.notifOpen=false; S.userMenuOpen=false; render(); } }, {once:true});
+}
+
+/* ============================== ROUTE DISPATCH ============================== */
+function renderRoute(){
+  const r = S.route;
+  if(r.startsWith('#/clients/')) return renderClientDetail(r);
+  if(r.startsWith('#/clients')) return renderClients();
+  if(r.startsWith('#/calendar')) return renderCalendar();
+  if(r.startsWith('#/tasks')) return renderTasks();
+  if(r.startsWith('#/settings')) return renderSettings();
+  return renderDashboard();
+}
+function bindRoute(){
+  const r = S.route;
+  if(r.startsWith('#/clients/')) return bindClientDetail(r);
+  if(r.startsWith('#/clients')) return bindClients();
+  if(r.startsWith('#/calendar')) return bindCalendar();
+  if(r.startsWith('#/tasks')) return bindTasks();
+  if(r.startsWith('#/settings')) return bindSettings();
+  return bindDashboard();
+}
+
+/* ============================== DASHBOARD ============================== */
+function renderDashboard(){
+  const activeClients = S.clients.filter(c=>c.status==='active').length;
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate()+7);
+  const sessionsWeek = S.sessions.filter(s=>{ const d=new Date(s.session_date); return d>=weekStart && d<weekEnd && s.status==='scheduled'; }).length;
+  const openTasks = S.tasks.filter(t=>t.status!=='done').length;
+  const newLeads = S.clients.filter(c=>c.status==='lead').length;
+
+  const todaySessions = S.sessions.filter(isTodaySession).sort((a,b)=>(a.session_time||'').localeCompare(b.session_time||''));
+  const urgentTasks = S.tasks.filter(t=>t.status!=='done').sort((a,b)=>{
+    const order={urgent:0,high:1,medium:2,low:3};
+    return (order[a.priority]??2)-(order[b.priority]??2) || (a.due_date||'').localeCompare(b.due_date||'');
+  }).slice(0,6);
+
+  const kpis = [
+    ['לקוחות פעילים', activeClients, 'users', 'var(--primary)', '#/clients'],
+    ['סשנים השבוע', sessionsWeek, 'calendar', 'var(--success)', '#/calendar'],
+    ['משימות פתוחות', openTasks, 'tasks', 'var(--warning)', '#/tasks'],
+    ['לידים חדשים', newLeads, 'sparkle', 'var(--accent-text)', '#/clients'],
+  ];
+
+  return `
+    <div class="fade-in">
+      <div class="mb-5">
+        <h1 class="text-2xl font-bold">שלום, ${esc((S.me.name||'').split(' ')[0])} 👋</h1>
+        <p style="color:var(--text-muted); font-size:14px;">הנה מה שקורה היום ב${esc(S.org.name)}</p>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        ${kpis.map(([label,val,i,color,route])=>`
+          <div class="card p-4 cursor-pointer kpi-card" data-go="${route}">
+            <div class="flex items-center justify-between mb-2">
+              <span style="color:${color}">${icon(i,20)}</span>
+              <span style="color:var(--text-muted)">${icon('chevL',14)}</span>
+            </div>
+            <div class="text-2xl font-bold">${val}</div>
+            <div style="color:var(--text-muted); font-size:12.5px;">${label}</div>
+          </div>`).join('')}
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold">סשנים היום</h2>
+            <span class="badge" style="background:var(--primary-soft); color:var(--primary)">${todaySessions.length}</span>
+          </div>
+          ${todaySessions.length? `<div class="flex flex-col gap-2">${todaySessions.map(s=>{
+            const c = clientById(s.client_id);
+            return `<div class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer" data-go="#/clients/${s.client_id}/clinical" style="background:var(--surface-2)">
+              <div class="font-semibold" style="min-width:48px; color:var(--primary)">${s.session_time||'—'}</div>
+              <div class="flex-1 min-w-0"><div class="font-semibold truncate">${esc(c? c.full_name:'לקוח לא ידוע')}</div></div>
+              <span class="badge" style="background:${SESSION_STATUSES[s.status].color}22; color:${SESSION_STATUSES[s.status].color}">${SESSION_STATUSES[s.status].label}</span>
+            </div>`;
+          }).join('')}</div>` : `<div class="empty-state">אין סשנים מתוזמנים להיום</div>`}
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold">משימות דחופות</h2>
+            <span class="badge" style="background:var(--warning-soft); color:var(--warning)">${openTasks}</span>
+          </div>
+          ${urgentTasks.length? `<div class="flex flex-col gap-2">${urgentTasks.map(t=>{
+            const p = statusInfo(TASK_PRIORITIES, t.priority);
+            return `<div class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer" data-go="#/tasks" style="background:var(--surface-2)">
+              <span class="badge" style="background:${p.color}22; color:${p.color}">${p.label}</span>
+              <div class="flex-1 min-w-0"><div class="font-semibold truncate">${esc(t.title)}</div></div>
+              ${t.due_date? `<div style="color:var(--text-muted); font-size:12px;">${fmtDateShort(t.due_date)}</div>`:''}
+            </div>`;
+          }).join('')}</div>` : `<div class="empty-state">אין משימות פתוחות 🎉</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+function bindDashboard(){ document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click', ()=>go(el.getAttribute('data-go')))); }
+
+/* ============================== CLIENTS (PIPELINE) ============================== */
+function renderClients(){
+  const q = S.clientSearch.trim().toLowerCase();
+  let list = S.clients.filter(c=> !q || (c.full_name||'').toLowerCase().includes(q) || (c.phone||'').includes(q));
+
+  return `
+  <div class="fade-in">
+    <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+      <h1 class="text-xl font-bold">לקוחות</h1>
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <span style="position:absolute; right:10px; top:9px; color:var(--text-muted);">${icon('search',16)}</span>
+          <input id="client-search" placeholder="חיפוש לקוח…" style="padding-right:32px; width:200px;" value="${esc(S.clientSearch)}">
+        </div>
+        <button class="btn btn-primary" data-new-client>${icon('plus',16)} לקוח חדש</button>
+      </div>
+    </div>
+
+    <!-- Desktop kanban -->
+    <div class="hidden md:flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+      ${CLIENT_STATUSES.map(st=>{
+        const items = list.filter(c=>c.status===st.id);
+        return `<div class="kanban-col flex flex-col gap-2" data-col="${st.id}">
+          <div class="flex items-center gap-2 px-1 mb-1">
+            <span class="dot" style="background:${st.color}"></span>
+            <span class="font-semibold" style="font-size:14px;">${st.label}</span>
+            <span style="color:var(--text-muted); font-size:12px;">${items.length}</span>
+          </div>
+          <div class="flex flex-col gap-2 min-h-[60px]" data-dropzone="${st.id}">
+            ${items.map(c=>clientCard(c)).join('') || `<div style="border:1.5px dashed var(--border); border-radius:12px; padding:16px; text-align:center; color:var(--text-muted); font-size:12px;">גררו לקוח לכאן</div>`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Mobile accordion -->
+    <div class="md:hidden flex flex-col gap-2">
+      ${CLIENT_STATUSES.map(st=>{
+        const items = list.filter(c=>c.status===st.id);
+        return `<div class="card">
+          <div class="flex items-center justify-between p-3 cursor-pointer" data-accordion="${st.id}">
+            <div class="flex items-center gap-2">
+              <span class="dot" style="background:${st.color}"></span>
+              <span class="font-semibold" style="font-size:14px;">${st.label}</span>
+              <span style="color:var(--text-muted); font-size:12px;">(${items.length})</span>
+            </div>
+            <span style="transform:${S['acc_'+st.id]?'rotate(180deg)':''}; transition:transform .15s;">${icon('chevDown',18)}</span>
+          </div>
+          ${S['acc_'+st.id] ? `<div class="flex flex-col gap-2 px-3 pb-3">${items.map(c=>clientCard(c,true)).join('') || `<div class="empty-state" style="padding:14px;">אין לקוחות בסטטוס זה</div>`}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+function clientCard(c, mobile){
+  const st = statusInfo(CLIENT_STATUSES, c.status);
+  const idx = CLIENT_STATUSES.findIndex(s=>s.id===c.status);
+  const next = CLIENT_STATUSES[idx+1];
+  return `<div class="card p-3 cursor-pointer" ${mobile?'':'draggable="true"'} data-client-card="${c.id}" data-go="#/clients/${c.id}">
+    <div class="flex items-center justify-between mb-1">
+      <div class="font-semibold truncate">${esc(c.full_name)}</div>
+      ${mobile && next ? `<button class="icon-btn" style="width:28px;height:28px;" data-advance="${c.id}" data-next="${next.id}" title="קדם ל${next.label}">${icon('chevL',15)}</button>` : ''}
+    </div>
+    ${c.phone? `<a href="${esc(waLink(c.phone))}" target="_blank" rel="noopener" data-wa style="color:#25D366; font-size:12.5px;" class="flex items-center gap-1 w-fit">${icon('whatsapp',13)}${esc(c.phone)}</a>`:''}
+    ${c.selected_reading? `<div class="mt-2 px-2 py-1 rounded-lg inline-block" style="background:var(--accent); color:var(--accent-text); font-size:11.5px; font-weight:600;">${esc(c.selected_reading)}</div>`:''}
+  </div>`;
+}
+function bindClients(){
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click', (e)=>{ if(e.target.closest('[data-advance]') || e.target.closest('[data-wa]')) return; go(el.getAttribute('data-go')); }));
+  const search = document.getElementById('client-search');
+  if(search){ search.addEventListener('input', e=>{ S.clientSearch = e.target.value; render(); document.getElementById('client-search').focus(); document.getElementById('client-search').selectionStart = document.getElementById('client-search').value.length; }); }
+  document.querySelector('[data-new-client]')?.addEventListener('click', ()=>openClientModal());
+  document.querySelectorAll('[data-accordion]').forEach(el=>el.addEventListener('click', ()=>{ const k='acc_'+el.getAttribute('data-accordion'); S[k]=!S[k]; render(); }));
+  document.querySelectorAll('[data-advance]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const id = el.getAttribute('data-advance'), next = el.getAttribute('data-next');
+    dbUpdate('clients', id, {status:next}); logActivity(id, `סטטוס שונה ל־${statusInfo(CLIENT_STATUSES,next).label}`);
+  }));
+  // drag & drop desktop
+  document.querySelectorAll('[data-client-card]').forEach(el=>{
+    el.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', el.getAttribute('data-client-card')); });
+  });
+  document.querySelectorAll('[data-dropzone]').forEach(zone=>{
+    zone.addEventListener('dragover', e=>e.preventDefault());
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/plain');
+      const newStatus = zone.getAttribute('data-dropzone');
+      const c = clientById(id);
+      if(c && c.status!==newStatus){ dbUpdate('clients', id, {status:newStatus}); logActivity(id, `סטטוס שונה ל־${statusInfo(CLIENT_STATUSES,newStatus).label}`); }
+    });
+  });
+}
+
+function openClientModal(existing){
+  const isEdit = !!existing;
+  const c = existing || {};
+  showModal(`
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg">${isEdit? 'עריכת לקוח':'לקוח חדש'}</h2>
+        <button class="icon-btn" data-close>${icon('x',18)}</button>
+      </div>
+      <form id="client-form" class="flex flex-col gap-3">
+        <label class="text-sm font-semibold">שם מלא *<input name="full_name" required value="${esc(c.full_name||'')}" class="mt-1"></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm font-semibold">טלפון<input name="phone" value="${esc(c.phone||'')}" class="mt-1"></label>
+          <label class="text-sm font-semibold">אימייל<input name="email" type="email" value="${esc(c.email||'')}" class="mt-1"></label>
+        </div>
+        <label class="text-sm font-semibold">כתובת<input name="address" value="${esc(c.address||'')}" class="mt-1"></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm font-semibold">תאריך לידה<input name="date_of_birth" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" data-date-mask value="${esc(isoToDMY(c.date_of_birth))}" class="mt-1"></label>
+          <label class="text-sm font-semibold">שם האם<input name="mother_name" value="${esc(c.mother_name||'')}" class="mt-1"></label>
+        </div>
+        <label class="text-sm font-semibold">קריאה נבחרת<input name="selected_reading" value="${esc(c.selected_reading||'')}" class="mt-1" placeholder="למשל: קריאת מראה"></label>
+        <div class="rounded-xl p-3" style="background:var(--surface-2)">
+          <div class="font-semibold text-sm mb-2">פרטי בן/בת זוג (אופציונלי)</div>
+          <div class="flex flex-col gap-2">
+            <input name="partner_full_name" placeholder="שם מלא" value="${esc(c.partner_full_name||'')}">
+            <div class="grid grid-cols-2 gap-2">
+              <input name="partner_dob" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" data-date-mask value="${esc(isoToDMY(c.partner_dob))}">
+              <input name="partner_mother_name" placeholder="שם האם" value="${esc(c.partner_mother_name||'')}">
+            </div>
+          </div>
+        </div>
+        <label class="text-sm font-semibold">הערות<textarea name="notes" rows="3" class="mt-1" placeholder="הערות כלליות, תיעוד שיחות וכו׳">${esc(c.notes||'')}</textarea></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm font-semibold">סטטוס
+            <select name="status" class="mt-1">${CLIENT_STATUSES.map(s=>`<option value="${s.id}" ${c.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select>
+          </label>
+          <label class="text-sm font-semibold">אחראי/ת
+            <select name="assigned_to" class="mt-1">
+              <option value="">—</option>
+              ${teamNames().map(n=>`<option value="${esc(n)}" ${c.assigned_to===n?'selected':''}>${esc(n)}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary flex-1">${isEdit?'שמירה':'יצירת לקוח'}</button>
+          ${isEdit? `<button type="button" class="btn btn-danger" data-delete-client="${c.id}">${icon('trash',16)}</button>`:''}
+        </div>
+      </form>
+    </div>
+  `);
+  document.getElementById('client-form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    if(!data.status) data.status = 'lead';
+    try{
+      data.date_of_birth = readDMYField(fd, 'date_of_birth', 'תאריך לידה');
+      data.partner_dob = readDMYField(fd, 'partner_dob', 'תאריך לידה (בן/בת זוג)');
+    }catch(err){ toast(err.message); return; }
+    if(isEdit){ await dbUpdate('clients', c.id, data); logActivity(c.id,'עודכנו פרטי לקוח'); toast('הלקוח עודכן'); }
+    else{ const ref = await dbAdd('clients', data); if(ref) logActivity(ref.id, 'לקוח נוצר'); toast('הלקוח נוצר'); }
+    closeModal(); render();
+  });
+  document.querySelector('[data-delete-client]')?.addEventListener('click', async ()=>{
+    if(await askConfirm('למחוק את הלקוח לצמיתות?', {title:'מחיקת לקוח', danger:true})){ await dbDelete('clients', c.id); closeModal(); go('#/clients'); toast('הלקוח נמחק'); }
+  });
+}
+
+/* ============================== CLIENT DETAIL ============================== */
+function renderClientDetail(route){
+  const parts = route.split('/');
+  const id = parts[2]; const tab = parts[3] || 'general';
+  const c = clientById(id);
+  if(!c) return `<div class="empty-state">הלקוח לא נמצא (או שעדיין נטען)</div>`;
+  const st = statusInfo(CLIENT_STATUSES, c.status);
+
+  return `<div class="fade-in">
+    <div class="flex items-center gap-2 mb-3">
+      <button class="icon-btn" data-go="#/clients">${icon('chevR',18)}</button>
+      <div class="flex-1">
+        <h1 class="text-xl font-bold">${esc(c.full_name)}</h1>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="badge" style="background:${st.color}22; color:${st.color}">${st.label}</span>
+          ${c.assigned_to? `<span style="color:var(--text-muted); font-size:12.5px;">אחראי/ת: ${esc(c.assigned_to)}</span>`:''}
+        </div>
+      </div>
+      <button class="icon-btn" data-edit-client>${icon('edit',18)}</button>
+    </div>
+    <div class="flex gap-4 mb-4" style="border-bottom:1px solid var(--border);">
+      <div class="tab-btn ${tab==='general'?'active':''}" data-tab="general">כללי</div>
+      <div class="tab-btn ${tab==='clinical'?'active':''}" data-tab="clinical">קליני</div>
+      <div class="tab-btn ${tab==='media'?'active':''}" data-tab="media">מדיה</div>
+    </div>
+    <div id="tab-content">${
+      tab==='clinical' ? renderClinicalTab(c) : tab==='media' ? renderMediaTab(c) : renderGeneralTab(c)
+    }</div>
+  </div>`;
+}
+function renderGeneralTab(c){
+  return `
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">פרטים אישיים</h3>
+        <div class="flex flex-col gap-2" style="font-size:14px;">
+          ${infoRow('phone','טלפון', c.phone)}
+          ${infoRow('mail','אימייל', c.email)}
+          ${infoRow('home','כתובת', c.address)}
+          ${infoRow('calendar','תאריך לידה', c.date_of_birth? fmtDate(c.date_of_birth):'')}
+          ${infoRow('users','שם האם', c.mother_name)}
+        </div>
+      </div>
+      ${(c.partner_full_name) ? `<div class="card p-4">
+        <h3 class="font-bold mb-3">בן/בת זוג</h3>
+        <div class="flex flex-col gap-2" style="font-size:14px;">
+          ${infoRow('users','שם מלא', c.partner_full_name)}
+          ${infoRow('calendar','תאריך לידה', c.partner_dob? fmtDate(c.partner_dob):'')}
+          ${infoRow('users','שם האם', c.partner_mother_name)}
+        </div>
+      </div>` : `<div class="card p-4 empty-state">אין פרטי בן/בת זוג</div>`}
+      ${c.selected_reading ? `<div class="card p-4 md:col-span-2" style="background:var(--accent); border-color:transparent;">
+        <div class="flex items-center gap-2" style="color:var(--accent-text)"><span>${icon('sparkle',18)}</span><h3 class="font-bold">קריאה נבחרת</h3></div>
+        <div class="mt-1" style="color:var(--accent-text); font-weight:600;">${esc(c.selected_reading)}</div>
+      </div>` : ''}
+      ${c.notes ? `<div class="card p-4 md:col-span-2">
+        <h3 class="font-bold mb-2">הערות</h3>
+        <div style="white-space:pre-wrap; font-size:13.5px; line-height:1.7; color:var(--text-muted);">${esc(c.notes)}</div>
+      </div>` : ''}
+      <div class="card p-4 md:col-span-2">
+        <h3 class="font-bold mb-3">פעילות אחרונה</h3>
+        ${logsForClient(c.id).length ? `<div class="flex flex-col gap-2">${logsForClient(c.id).map(l=>`
+          <div class="flex items-center gap-2" style="font-size:13px; color:var(--text-muted);">
+            <span class="dot"></span><span style="color:var(--text)">${esc(l.action)}</span>
+            <span>· ${esc(l.actor)} · ${fmtDateTime(l.at)}</span>
+          </div>`).join('')}</div>` : `<div class="empty-state" style="padding:10px;">אין פעילות עדיין</div>`}
+      </div>
+    </div>`;
+}
+function infoRow(i,label,val){
+  if(!val) return `<div class="flex items-center gap-2" style="color:var(--text-muted)">${icon(i,15)}<span>${label}: —</span></div>`;
+  return `<div class="flex items-center gap-2"><span style="color:var(--text-muted)">${icon(i,15)}</span><span style="color:var(--text-muted)">${label}:</span><span class="font-medium">${esc(val)}</span></div>`;
+}
+function renderClinicalTab(c){
+  const programs = programsForClient(c.id);
+  return `<div class="flex flex-col gap-4">
+    <div class="flex justify-end gap-2 flex-wrap">
+      <button class="btn btn-ghost" data-quick-live-reading="${c.id}" style="border-color:var(--accent); color:var(--accent-text);">${icon('sparkle',16)} קריאה חיה מהירה</button>
+      <button class="btn btn-primary" data-new-program="${c.id}">${icon('plus',16)} תוכנית חדשה</button>
+    </div>
+    ${programs.length? programs.map(p=>{
+      const sessions = sessionsForProgram(p.id);
+      const done = sessions.filter(s=>s.status==='completed').length;
+      return `<div class="card p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <div>
+            <div class="font-bold">${p.title? esc(p.title)+' · ':''}${p.total_sessions} סשנים${p.sessions_per_day>1?` (${p.sessions_per_day} ביום)`:''}</div>
+            <div style="color:var(--text-muted); font-size:12.5px;">התחלה ${fmtDate(p.start_date)} · ${(p.weekly_days||[]).map(d=>WEEKDAYS_SHORT[d]).join(', ')} · ${(p.session_times&&p.session_times.length>1)?p.session_times.join(', '):(p.session_time||'')}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            ${p.status && p.status!=='active' ? `<span class="badge" style="background:var(--surface-2); color:var(--text-muted)">${p.status==='paused'?'מושהית':'הושלמה'}</span>` : ''}
+            <span class="badge" style="background:var(--primary-soft); color:var(--primary)">${done}/${sessions.length} הושלמו</span>
+            <button class="icon-btn" style="width:30px;height:30px;" data-edit-program="${p.id}" title="עריכת תוכנית">${icon('edit',15)}</button>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5 mt-3">
+          ${sessions.map(s=>`
+            <div class="flex items-center gap-3 p-2 rounded-lg" style="background:var(--surface-2)">
+              <div style="min-width:90px; font-size:13px;" class="font-medium">${fmtDateShort(s.session_date)} ${s.session_time?('· '+s.session_time):''}</div>
+              <select data-session-status="${s.id}" style="width:auto; padding:4px 8px; font-size:12px; border-radius:8px;">
+                ${Object.entries(SESSION_STATUSES).map(([k,v])=>`<option value="${k}" ${s.status===k?'selected':''}>${v.label}</option>`).join('')}
+              </select>
+              <div class="flex-1"></div>
+            </div>`).join('')}
+        </div>
+        <div class="mt-3 pt-3" style="border-top:1px solid var(--border);">
+          <div class="flex items-center justify-between mb-2">
+            <div class="font-semibold" style="font-size:12.5px; color:var(--text-muted);">מדיה של התוכנית</div>
+            <label class="btn btn-ghost" style="cursor:pointer; padding:4px 10px; font-size:11.5px;">
+              ${icon('image',13)} הוספה
+              <input type="file" accept="image/*" data-program-media-upload="${p.id}" style="display:none;">
+            </label>
+          </div>
+          ${(p.gallery&&p.gallery.length) ? `<div class="flex gap-2 overflow-x-auto scrollbar-thin pb-1">${p.gallery.map((g,i)=>`
+            <div class="relative shrink-0" style="width:56px; height:56px; border-radius:10px; overflow:hidden; background:var(--surface);">
+              <img src="${esc(g.url)}" style="width:100%; height:100%; object-fit:cover;">
+              <button data-remove-program-media="${p.id}::${i}" style="position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:99px; background:rgba(0,0,0,.55); color:#fff; display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; padding:0;">${icon('x',10)}</button>
+            </div>`).join('')}</div>` : `<div style="color:var(--text-muted); font-size:11.5px;">אין מדיה עדיין</div>`}
+        </div>
+      </div>`;
+    }).join('') : `<div class="card empty-state">אין תוכניות עדיין. צרו תוכנית כדי לייצר אוטומטית את לוח הסשנים.</div>`}
+  </div>`;
+}
+function renderMediaTab(c){
+  const gallery = c.gallery || [];
+  const audio = c.audio || [];
+  return `<div class="card p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold">גלריית תמונות</h3>
+      <label class="btn btn-ghost" style="cursor:pointer;">
+        ${icon('image',16)} העלאת תמונה
+        <input type="file" accept="image/*" id="media-upload" style="display:none;">
+      </label>
+    </div>
+    ${!S.assets ? `<div class="flex items-start gap-2 p-3 rounded-xl mb-3" style="background:var(--warning-soft); color:var(--accent-text); font-size:13px;">${icon('wifiOff',15)}<span>יש להגדיר את firebaseConfig בראש הקובץ ולהפעיל Firebase Storage כדי שהעלאת תמונות תעבוד. ראו README.md.</span></div>` : ''}
+    ${gallery.length? `<div class="grid grid-cols-3 md:grid-cols-4 gap-2">${gallery.map((g,i)=>`
+      <div class="relative group" style="aspect-ratio:1; border-radius:12px; overflow:hidden; background:var(--surface-2);">
+        <img src="${esc(g.url)}" style="width:100%; height:100%; object-fit:cover;">
+        <button data-remove-media="${i}" class="icon-btn" style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,.5); color:#fff; width:26px; height:26px;">${icon('x',13)}</button>
+        <div style="position:absolute; bottom:3px; left:3px; right:3px; display:flex; gap:3px; justify-content:flex-end;">
+          <button data-share-file="${esc(g.url)}" data-share-name="image-${i+1}.jpg" class="icon-btn" style="background:rgba(0,0,0,.5); color:#fff; width:24px; height:24px;" title="שיתוף">${icon('whatsapp',12)}</button>
+          <button data-email-file="${esc(g.url)}" data-email-name="image-${i+1}.jpg" class="icon-btn" style="background:rgba(0,0,0,.5); color:#fff; width:24px; height:24px;" title="שליחה במייל">${icon('mail',12)}</button>
+        </div>
+      </div>`).join('')}</div>` : `<div class="empty-state">אין תמונות עדיין</div>`}
+  </div>
+
+  <div class="card p-4 mt-4">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <h3 class="font-bold">הקלטות שמע</h3>
+      <div class="flex items-center gap-2">
+        <label class="btn btn-ghost" style="cursor:pointer;">
+          ${icon('image',16)} העלאת קובץ
+          <input type="file" accept="audio/*" id="audio-upload" style="display:none;">
+        </label>
+        <button type="button" class="btn btn-primary" id="audio-record-btn">${icon('sparkle',16)} <span id="audio-record-label">הקלטה</span></button>
+      </div>
+    </div>
+    ${!S.assets ? `<div class="flex items-start gap-2 p-3 rounded-xl mb-3" style="background:var(--warning-soft); color:var(--accent-text); font-size:13px;">${icon('wifiOff',15)}<span>יש להגדיר Firebase Storage כדי שהעלאת/הקלטת שמע יעבדו.</span></div>` : ''}
+    <div id="audio-record-status" style="display:none; color:var(--danger); font-size:13px; margin-bottom:10px;">🔴 מקליט… לחצו שוב כדי לעצור</div>
+    ${audio.length? `<div class="flex flex-col gap-2 mb-4">${audio.map((a,i)=>`
+      <div class="p-2.5 rounded-xl" style="background:var(--surface-2)">
+        <div class="flex items-center justify-between gap-2 mb-1.5">
+          <span class="font-medium truncate" style="font-size:13px;">${esc(a.name||'הקלטה')}</span>
+          <div class="flex items-center gap-1">
+            <button data-share-file="${esc(a.url)}" data-share-name="${esc(a.name||'audio.webm')}" class="icon-btn" style="width:26px;height:26px;" title="שיתוף">${icon('whatsapp',13)}</button>
+            <button data-email-file="${esc(a.url)}" data-email-name="${esc(a.name||'audio.webm')}" class="icon-btn" style="width:26px;height:26px;" title="שליחה במייל">${icon('mail',13)}</button>
+            <button data-remove-audio-file="${i}" class="icon-btn" style="width:26px;height:26px; color:var(--danger);" title="מחיקה">${icon('trash',13)}</button>
+          </div>
+        </div>
+        <audio controls src="${esc(a.url)}" style="width:100%; height:34px;"></audio>
+      </div>`).join('')}</div>` : `<div class="empty-state" style="padding:14px;">אין הקלטות עדיין</div>`}
+    <details class="mt-1">
+      <summary style="cursor:pointer; color:var(--text-muted); font-size:12.5px;">קישור להקלטה חיצונית (וואטסאפ, Drive וכו')</summary>
+      <form id="audio-link-form" class="flex gap-2 flex-wrap mt-2 mb-3">
+        <input name="label" placeholder="תיאור, למשל: הקלטת סשן 1" style="flex:1; min-width:140px;">
+        <input name="url" placeholder="קישור להקלטה (https://…)" type="url" style="flex:1; min-width:140px;" required>
+        <button class="btn btn-primary" type="submit">${icon('plus',16)} הוספה</button>
+      </form>
+      ${(c.audio_links&&c.audio_links.length) ? `<div class="flex flex-col gap-2">${c.audio_links.map((a,i)=>`
+        <div class="flex items-center gap-2 p-2.5 rounded-xl" style="background:var(--surface-2)">
+          <span style="color:var(--primary)">${icon('sparkle',15)}</span>
+          <a href="${esc(a.url)}" target="_blank" rel="noopener" class="flex-1 font-medium truncate" style="font-size:13.5px;">${esc(a.label||a.url)}</a>
+          <button class="icon-btn" data-remove-audio="${i}" style="width:30px;height:30px;">${icon('x',14)}</button>
+        </div>`).join('')}</div>` : ''}
+    </details>
+  </div>`;
+}
+function bindClientDetail(route){
+  const parts = route.split('/'); const id = parts[2]; const c = clientById(id);
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click', ()=>go(el.getAttribute('data-go'))));
+  document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click', ()=>go(`#/clients/${id}/${el.getAttribute('data-tab')}`)));
+  document.querySelector('[data-edit-client]')?.addEventListener('click', ()=>openClientModal(c));
+  document.querySelector('[data-new-program]')?.addEventListener('click', ()=>openProgramModal(id));
+  document.querySelectorAll('[data-edit-program]').forEach(el=>el.addEventListener('click', ()=>{
+    const program = S.programs.find(pr=>pr.id===el.getAttribute('data-edit-program'));
+    if(program) openProgramModal(id, program);
+  }));
+  document.querySelector('[data-quick-live-reading]')?.addEventListener('click', ()=>openLiveReadingModal(id));
+  document.querySelectorAll('[data-session-status]').forEach(el=>el.addEventListener('change', e=>{
+    dbUpdate('sessions', el.getAttribute('data-session-status'), {status:e.target.value});
+    logActivity(id, `עדכון סטטוס סשן ל־${SESSION_STATUSES[e.target.value].label}`);
+  }));
+  document.querySelectorAll('[data-program-media-upload]').forEach(el=>el.addEventListener('change', async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    if(!S.assets){ toast('העלאת קבצים לא זמינה - יש להגדיר Firebase Storage קודם (ראו README.md)'); return; }
+    const programId = el.getAttribute('data-program-media-upload');
+    try{
+      const res = await S.assets.upload(file);
+      const program = S.programs.find(p=>p.id===programId);
+      const gallery = [...((program&&program.gallery)||[]), {id:res.id, url:res.url}];
+      await dbUpdate('programs', programId, {gallery});
+      toast('התמונה נוספה לתוכנית');
+    }catch(err){ toast('העלאת הקובץ נכשלה'); }
+  }));
+  document.querySelectorAll('[data-remove-program-media]').forEach(el=>el.addEventListener('click', async ()=>{
+    const [programId, idxStr] = el.getAttribute('data-remove-program-media').split('::');
+    const i = Number(idxStr);
+    const program = S.programs.find(p=>p.id===programId);
+    const gallery = [...((program&&program.gallery)||[])];
+    const [removed] = gallery.splice(i,1);
+    await dbUpdate('programs', programId, {gallery});
+    if(removed && S.assets){ try{ await S.assets.delete(removed.id); }catch(e){} }
+    toast('התמונה הוסרה מהתוכנית');
+  }));
+  const upload = document.getElementById('media-upload');
+  if(upload) upload.addEventListener('change', async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    if(!S.assets){ toast('העלאת קבצים לא זמינה - יש להגדיר Firebase Storage קודם (ראו README.md)'); return; }
+    try{
+      const res = await S.assets.upload(file);
+      const gallery = [...(c.gallery||[]), {id:res.id, url:res.url}];
+      await dbUpdate('clients', id, {gallery});
+      logActivity(id,'תמונה הועלתה'); toast('התמונה הועלתה');
+    }catch(err){ toast('העלאת הקובץ נכשלה'); }
+  });
+  document.querySelectorAll('[data-remove-media]').forEach(el=>el.addEventListener('click', async ()=>{
+    const i = Number(el.getAttribute('data-remove-media'));
+    const gallery = [...(c.gallery||[])];
+    const [removed] = gallery.splice(i,1);
+    await dbUpdate('clients', id, {gallery});
+    if(removed && S.assets){ try{ await S.assets.delete(removed.id); }catch(e){} }
+    toast('התמונה הוסרה');
+  }));
+  document.getElementById('audio-link-form')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const url = fd.get('url').trim(); if(!url) return;
+    const audio_links = [...(c.audio_links||[]), {label: fd.get('label').trim(), url}];
+    await dbUpdate('clients', id, {audio_links});
+    logActivity(id, 'הקלטה קושרה');
+    toast('הקישור נוסף');
+  });
+  document.querySelectorAll('[data-remove-audio]').forEach(el=>el.addEventListener('click', async ()=>{
+    const i = Number(el.getAttribute('data-remove-audio'));
+    const audio_links = [...(c.audio_links||[])];
+    audio_links.splice(i,1);
+    await dbUpdate('clients', id, {audio_links});
+    toast('הקישור הוסר');
+  }));
+  document.getElementById('audio-upload')?.addEventListener('change', async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    if(!S.assets){ toast('העלאת קבצים לא זמינה - יש להגדיר Firebase Storage'); return; }
+    try{
+      const res = await S.assets.upload(file, {type:file.type});
+      const audio = [...(c.audio||[]), {id:res.id, url:res.url, name:file.name}];
+      await dbUpdate('clients', id, {audio});
+      logActivity(id, 'קובץ שמע הועלה'); toast('הקובץ נוסף');
+    }catch(err){ toast('העלאת הקובץ נכשלה'); }
+  });
+  document.querySelectorAll('[data-remove-audio-file]').forEach(el=>el.addEventListener('click', async ()=>{
+    const i = Number(el.getAttribute('data-remove-audio-file'));
+    const audio = [...(c.audio||[])];
+    const [removed] = audio.splice(i,1);
+    await dbUpdate('clients', id, {audio});
+    if(removed && S.assets){ try{ await S.assets.delete(removed.id); }catch(e){} }
+    toast('ההקלטה הוסרה');
+  }));
+  bindAudioRecorder(document.getElementById('audio-record-btn'), document.getElementById('audio-record-status'), document.getElementById('audio-record-label'), async (blob)=>{
+    if(!S.assets){ toast('הקלטה לא זמינה - יש להגדיר Firebase Storage'); return; }
+    const filename = `הקלטה-${Date.now()}.webm`;
+    try{
+      const file = new File([blob], filename, {type:'audio/webm'});
+      const res = await S.assets.upload(file, {type:'audio/webm'});
+      const audio = [...(c.audio||[]), {id:res.id, url:res.url, name:filename}];
+      await dbUpdate('clients', id, {audio});
+      logActivity(id, 'הקלטה נשמרה'); toast('ההקלטה נשמרה');
+    }catch(err){ toast('שמירת ההקלטה נכשלה'); }
+  });
+  bindShareButtons();
+}
+/** Wires a record/stop toggle button to MediaRecorder; calls onDone(blob)
+ *  once the user stops recording. Reused wherever a "הקלטה" button exists. */
+function bindAudioRecorder(btn, statusEl, labelEl, onDone){
+  if(!btn) return;
+  let mediaRecorder = null, chunks = [], stream = null;
+  btn.addEventListener('click', async ()=>{
+    if(mediaRecorder && mediaRecorder.state==='recording'){
+      mediaRecorder.stop();
+      return;
+    }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('הקלטה אינה נתמכת בדפדפן הזה'); return; }
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
+      mediaRecorder.onstop = async ()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        if(statusEl) statusEl.style.display='none';
+        if(labelEl) labelEl.textContent='הקלטה';
+        const blob = new Blob(chunks, {type:'audio/webm'});
+        await onDone(blob);
+        render();
+      };
+      mediaRecorder.start();
+      if(statusEl) statusEl.style.display='block';
+      if(labelEl) labelEl.textContent='עצירה';
+    }catch(e){ toast('לא ניתן לגשת למיקרופון'); }
+  });
+}
+
+function programTimeInputsHtml(n, times){
+  let html='';
+  for(let i=0;i<n;i++) html += `<input name="session_time_${i}" type="time" value="${esc(times[i]||times[0]||'10:00')}" class="mb-1.5">`;
+  return html;
+}
+function openProgramModal(clientId, existing){
+  const isEdit = !!existing;
+  const p = existing || {};
+  const perDay = p.sessions_per_day || 1;
+  const times = (p.session_times && p.session_times.length) ? p.session_times : (p.session_time ? [p.session_time] : ['10:00']);
+  showModal(`
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg">${isEdit?'עריכת תוכנית':'תוכנית חדשה'}</h2>
+        <button class="icon-btn" data-close>${icon('x',18)}</button>
+      </div>
+      <form id="program-form" class="flex flex-col gap-3">
+        <label class="text-sm font-semibold">שם לתוכנית<input name="title" value="${esc(p.title||'')}" placeholder="למשל: קריאה חודשית (אופציונלי)"></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm font-semibold">מספר סשנים כולל *<input name="total_sessions" type="number" min="1" value="${p.total_sessions||8}" required></label>
+          <label class="text-sm font-semibold">סשנים ביום (עד 7)<input name="sessions_per_day" id="sessions-per-day-input" type="number" min="1" max="7" value="${perDay}"></label>
+        </div>
+        <label class="text-sm font-semibold">תאריך התחלה *<input name="start_date" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" required data-date-mask value="${isoToDMY(p.start_date||todayIso())}"></label>
+        <div>
+          <div class="text-sm font-semibold mb-1">שעות הסשנים ביום</div>
+          <div id="session-times-wrap" class="flex flex-col gap-1.5">${programTimeInputsHtml(perDay, times)}</div>
+        </div>
+        <div>
+          <div class="text-sm font-semibold mb-1">ימים בשבוע *</div>
+          <div class="flex gap-1.5 flex-wrap">
+            ${WEEKDAYS.map((w,i)=>`<label class="chip" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" name="weekly_days" value="${i}" style="width:auto;" ${(p.weekly_days||[]).includes(i)?'checked':''}>${w}</label>`).join('')}
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm font-semibold">אחראי/ת
+            <select name="assigned_to" class="mt-1"><option value="">—</option>${teamNames().map(n=>`<option value="${esc(n)}" ${p.assigned_to===n?'selected':''}>${esc(n)}</option>`).join('')}</select>
+          </label>
+          <label class="text-sm font-semibold">סטטוס תוכנית
+            <select name="status" class="mt-1">
+              <option value="active" ${(!p.status||p.status==='active')?'selected':''}>פעילה</option>
+              <option value="paused" ${p.status==='paused'?'selected':''}>מושהית</option>
+              <option value="completed" ${p.status==='completed'?'selected':''}>הושלמה</option>
+            </select>
+          </label>
+        </div>
+        ${isEdit? `<label class="flex items-start gap-2" style="font-size:12.5px; color:var(--text-muted);">
+          <input type="checkbox" name="regenerate" style="width:auto; margin-top:2px;">
+          <span>לחשב מחדש את לוח הסשנים: סשנים שעוד <b>לא הושלמו</b> יימחקו וייווצרו מחדש לפי הפרטים למעלה (סשנים שכבר הושלמו לא ייפגעו)</span>
+        </label>` : ''}
+        <div class="flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary flex-1">${isEdit?'שמירת שינויים':'יצירת תוכנית ולוח סשנים אוטומטי'}</button>
+          ${isEdit? `<button type="button" class="btn btn-danger" data-delete-program="${p.id}">${icon('trash',16)}</button>`:''}
+        </div>
+      </form>
+    </div>
+  `);
+  document.getElementById('sessions-per-day-input').addEventListener('input', e=>{
+    const n = Math.min(7, Math.max(1, Number(e.target.value)||1));
+    const wrap = document.getElementById('session-times-wrap');
+    const current = Array.from(wrap.querySelectorAll('input[type=time]')).map(inp=>inp.value);
+    wrap.innerHTML = programTimeInputsHtml(n, current.length?current:times);
+  });
+  document.getElementById('program-form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const weekly_days = fd.getAll('weekly_days').map(Number);
+    if(weekly_days.length===0){ toast('בחרו לפחות יום אחד בשבוע'); return; }
+    let start_date;
+    try{ start_date = readDMYField(fd, 'start_date', 'תאריך התחלה'); }catch(err){ toast(err.message); return; }
+    if(!start_date){ toast('נא להזין תאריך התחלה בפורמט DD/MM/YYYY'); return; }
+    const sessions_per_day = Math.min(7, Math.max(1, Number(fd.get('sessions_per_day'))||1));
+    const session_times = [];
+    for(let i=0;i<sessions_per_day;i++) session_times.push(fd.get('session_time_'+i) || '10:00');
+    const data = {
+      client_id: clientId, title:(fd.get('title')||'').trim(), total_sessions: Number(fd.get('total_sessions')),
+      sessions_per_day, session_times, session_time: session_times[0],
+      start_date, weekly_days, status: fd.get('status')||'active',
+      assigned_to: fd.get('assigned_to')||'', gallery: p.gallery||[],
+    };
+    if(isEdit){
+      await dbUpdate('programs', p.id, data);
+      if(fd.get('regenerate')) await regenerateProgramSessions({...data, id:p.id});
+      logActivity(clientId, 'תוכנית עודכנה');
+      toast('התוכנית עודכנה');
+    } else {
+      const ref = await dbAdd('programs', data);
+      if(ref) await generateSessionsForProgram(data, ref);
+      logActivity(clientId, `תוכנית חדשה נוצרה (${data.total_sessions} סשנים)`);
+      toast('התוכנית נוצרה ולוח הסשנים חושב אוטומטית');
+    }
+    closeModal(); render();
+  });
+  document.querySelector('[data-delete-program]')?.addEventListener('click', async ()=>{
+    if(await askConfirm('למחוק את התוכנית וכל הסשנים שלה לצמיתות?', {title:'מחיקת תוכנית', danger:true})){
+      for(const s of sessionsForProgram(p.id)) await dbDelete('sessions', s.id);
+      await dbDelete('programs', p.id);
+      logActivity(clientId, 'תוכנית נמחקה');
+      closeModal(); toast('התוכנית נמחקה'); render();
+    }
+  });
+}
+
+/** Quick "live reading" flow: a single-session program dated today plus
+ *  an automatically created follow-up reminder task 1–7 days out. */
+function openLiveReadingModal(clientId){
+  const c = clientById(clientId);
+  showModal(`
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg">${icon('sparkle',18)} קריאה חיה מהירה</h2>
+        <button class="icon-btn" data-close>${icon('x',18)}</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:13px; line-height:1.6;" class="mb-4">
+        ייפתח סשן בודד להיום עבור ${esc(c?c.full_name:'הלקוח')}, ותיווצר אוטומטית משימת תזכורת מעקב.
+      </p>
+      <form id="live-reading-form" class="flex flex-col gap-3">
+        <label class="text-sm font-semibold">תזכורת מעקב בעוד כמה ימים?
+          <select name="days" class="mt-1">
+            ${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n===1?'יום אחד':n+' ימים'}</option>`).join('')}
+          </select>
+        </label>
+        <button type="submit" class="btn btn-primary mt-2">${icon('sparkle',16)} יצירת קריאה חיה</button>
+      </form>
+    </div>
+  `);
+  document.getElementById('live-reading-form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const days = Number(fd.get('days'))||3;
+    const weekday = new Date().getDay();
+    const programData = {
+      client_id: clientId, title:'קריאה חיה', total_sessions:1, sessions_per_day:1,
+      start_date: todayIso(), weekly_days:[weekday], session_time:'', status:'active',
+      assigned_to: S.me?.name||'', gallery:[],
+    };
+    const ref = await dbAdd('programs', programData);
+    if(ref) await generateSessionsForProgram(programData, ref);
+    const due = new Date(); due.setDate(due.getDate()+days);
+    await dbAdd('tasks', {
+      title:`מעקב אחרי קריאה חיה — ${c?c.full_name:''}`,
+      description:'משימת תזכורת שנוצרה אוטומטית מקריאה חיה מהירה.',
+      priority:'medium', status:'todo', due_date: ymd(due),
+      client_id: clientId, assigned_to: S.me?.name||'',
+    });
+    logActivity(clientId, `קריאה חיה מהירה נוצרה, תזכורת מעקב בעוד ${days} ימים`);
+    toast('נוצרה קריאה חיה, ונוספה תזכורת מעקב');
+    closeModal(); render();
+  });
+}
+
+/* ============================== CALENDAR ============================== */
+function renderCalendar(){
+  const m = S.calMonth;
+  const first = new Date(m.getFullYear(), m.getMonth(), 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
+  const cells = [];
+  for(let i=0;i<startOffset;i++) cells.push(null);
+  for(let d=1; d<=daysInMonth; d++) cells.push(new Date(m.getFullYear(), m.getMonth(), d));
+
+  const eventsByDay = {};
+  S.sessions.filter(s=>s.status!=='completed').forEach(s=>{ (eventsByDay[s.session_date] ||= {sessions:0,tasks:0}).sessions++; });
+  S.tasks.filter(t=>t.due_date).forEach(t=>{ (eventsByDay[t.due_date] ||= {sessions:0,tasks:0}).tasks++; });
+
+  const selDate = S.calSelected;
+  const daySessions = S.sessions.filter(s=>s.session_date===selDate && s.status!=='completed').sort((a,b)=>(a.session_time||'').localeCompare(b.session_time||''));
+  const dayTasks = S.tasks.filter(t=>t.due_date===selDate);
+
+  return `<div class="fade-in">
+    <h1 class="text-xl font-bold mb-4">יומן</h1>
+    <div class="grid md:grid-cols-[1fr_320px] gap-4">
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <button class="icon-btn" data-cal-prev>${icon('chevR',18)}</button>
+          <div class="font-bold">${MONTHS_HE[m.getMonth()]} ${m.getFullYear()}</div>
+          <button class="icon-btn" data-cal-next>${icon('chevL',18)}</button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 mb-1" style="color:var(--text-muted); font-size:12px; font-weight:700; text-align:center;">
+          ${WEEKDAYS_SHORT.map(w=>`<div>${w}</div>`).join('')}
+        </div>
+        <div class="grid grid-cols-7 gap-1">
+          ${cells.map(d=>{
+            if(!d) return `<div></div>`;
+            const iso = ymd(d);
+            const ev = eventsByDay[iso];
+            const isToday = iso===todayIso();
+            const isSel = iso===selDate;
+            return `<div class="day-cell ${isToday?'today':''} ${isSel?'selected':''}" data-day="${iso}">
+              <span>${d.getDate()}</span>
+              ${ev? `<span style="display:flex; gap:2px; margin-top:2px;">${ev.sessions?`<span class="dot" style="background:${isSel?'#fff':'var(--primary)'}"></span>`:''}${ev.tasks?`<span class="dot" style="background:${isSel?'#fff':'var(--warning)'}"></span>`:''}</span>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="card p-4">
+        <div class="font-bold mb-3">${fmtDate(selDate)}</div>
+        <div class="flex flex-col gap-2 mb-4">
+          ${daySessions.length? daySessions.map(s=>{
+            const c = clientById(s.client_id);
+            const st = SESSION_STATUSES[s.status] || SESSION_STATUSES.scheduled;
+            return `<div class="p-2.5 rounded-xl" style="background:var(--surface-2)">
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <div class="flex items-center gap-2 cursor-pointer" data-go="#/clients/${s.client_id}/clinical">
+                  <span style="color:var(--primary)">${icon('clock',14)}</span>
+                  <span class="font-semibold" style="font-size:13px;">${s.session_time||'—'}</span>
+                  <span style="font-size:13px;">${esc(c?c.full_name:'לקוח')}</span>
+                </div>
+                ${s.status!=='scheduled' ? `<span class="badge" style="background:${st.color}22; color:${st.color}; font-size:11px;">${st.label}</span>` : ''}
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px; gap:4px;" data-sess-status="${s.id}" data-status="completed">${icon('tasks',13)} בוצע</button>
+                <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px; gap:4px;" data-sess-status="${s.id}" data-status="postponed">${icon('clock',13)} נדחה</button>
+                <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px; gap:4px; color:var(--danger);" data-sess-status="${s.id}" data-status="cancelled">${icon('x',13)} בוטל</button>
+              </div>
+            </div>`;
+          }).join('') : `<div style="color:var(--text-muted); font-size:13px;">אין סשנים פתוחים ביום זה</div>`}
+        </div>
+        ${dayTasks.length? `<div class="font-semibold text-sm mb-2">משימות ליום זה</div><div class="flex flex-col gap-2">${dayTasks.map(t=>`
+          <div class="p-2 rounded-xl" style="background:var(--warning-soft); font-size:13px;">${esc(t.title)}</div>`).join('')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+/** Computes the next date after this program's latest currently-scheduled
+ *  session that matches its weekly pattern, and appends a fresh session
+ *  there — used when a session is marked "postponed" so the client gets
+ *  a make-up slot at the end of their schedule instead of losing it. */
+async function postponeSession(session){
+  const program = session.program_id ? S.programs.find(p=>p.id===session.program_id) : null;
+  let nextDate;
+  if(program && Array.isArray(program.weekly_days) && program.weekly_days.length){
+    const progSessions = sessionsForProgram(program.id);
+    const maxDateStr = progSessions.reduce((max,s)=> (s.session_date && s.session_date>max) ? s.session_date : max, program.start_date || session.session_date || todayIso());
+    let d = new Date(maxDateStr+'T00:00:00'); d.setDate(d.getDate()+1);
+    let guard=0;
+    while(!program.weekly_days.includes(d.getDay()) && guard<400){ d.setDate(d.getDate()+1); guard++; }
+    nextDate = ymd(d);
+  } else {
+    let d = new Date((session.session_date||todayIso())+'T00:00:00'); d.setDate(d.getDate()+7);
+    nextDate = ymd(d);
+  }
+  await dbAdd('sessions', {
+    program_id: session.program_id||'', client_id: session.client_id,
+    session_date: nextDate, session_time: session.session_time||'',
+    status:'scheduled', notes:'', images:[], assigned_to: session.assigned_to||'',
+  });
+  return nextDate;
+}
+async function setSessionStatus(session, newStatus){
+  await dbUpdate('sessions', session.id, {status:newStatus});
+  if(newStatus==='completed'){
+    logActivity(session.client_id, 'סשן סומן כבוצע');
+    toast('הסשן סומן כבוצע והוסר מהיומן');
+  } else if(newStatus==='cancelled'){
+    logActivity(session.client_id, 'סשן בוטל');
+    toast('הסשן בוטל');
+  } else if(newStatus==='postponed'){
+    const nextDate = await postponeSession(session);
+    logActivity(session.client_id, `סשן נדחה — נוסף מועד חדש ל-${fmtDateShort(nextDate)}`);
+    toast(`הסשן נדחה — נוסף מועד חדש ב-${fmtDateShort(nextDate)}`);
+  }
+  render();
+}
+function bindCalendar(){
+  document.querySelector('[data-cal-prev]')?.addEventListener('click', ()=>{ S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth()-1, 1); render(); });
+  document.querySelector('[data-cal-next]')?.addEventListener('click', ()=>{ S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth()+1, 1); render(); });
+  document.querySelectorAll('[data-day]').forEach(el=>el.addEventListener('click', ()=>{ S.calSelected = el.getAttribute('data-day'); render(); }));
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click', ()=>go(el.getAttribute('data-go'))));
+  document.querySelectorAll('[data-sess-status]').forEach(el=>el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const s = S.sessions.find(x=>x.id===el.getAttribute('data-sess-status'));
+    const status = el.getAttribute('data-status');
+    if(s) setSessionStatus(s, status);
+  }));
+}
+
+/* ============================== TASKS ============================== */
+function renderTasks(){
+  let list = S.tasks;
+  if(S.taskFilter==='mine') list = list.filter(t=>t.assigned_to===S.me.name);
+  if(S.taskFilter==='open') list = list.filter(t=>t.status!=='done');
+  list = [...list].sort((a,b)=>{
+    const order={urgent:0,high:1,medium:2,low:3};
+    return (order[a.priority]??2)-(order[b.priority]??2) || (a.due_date||'').localeCompare(b.due_date||'');
+  });
+
+  return `<div class="fade-in">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+      <h1 class="text-xl font-bold">משימות</h1>
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1.5">
+          <span class="chip ${S.taskFilter==='all'?'active':''}" data-filter="all">הכל</span>
+          <span class="chip ${S.taskFilter==='mine'?'active':''}" data-filter="mine">שלי</span>
+          <span class="chip ${S.taskFilter==='open'?'active':''}" data-filter="open">פתוחות</span>
+        </div>
+        <button class="btn btn-primary" data-new-task>${icon('plus',16)} משימה</button>
+      </div>
+    </div>
+    ${list.length? `<div class="flex flex-col gap-2">${list.map(t=>taskRow(t)).join('')}</div>` : `<div class="card empty-state">אין משימות</div>`}
+  </div>`;
+}
+function taskRow(t){
+  const p = statusInfo(TASK_PRIORITIES, t.priority);
+  const c = t.client_id ? clientById(t.client_id) : null;
+  const done = t.status==='done';
+  return `<div class="card p-3 flex items-center gap-3">
+    <input type="checkbox" data-toggle-task="${t.id}" ${done?'checked':''} style="width:20px; height:20px; accent-color:var(--primary); flex-shrink:0;">
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold ${done?'line-through':''}" style="${done?'color:var(--text-muted)':''}">${esc(t.title)}</div>
+      <div class="flex items-center gap-2 flex-wrap mt-0.5" style="font-size:12px; color:var(--text-muted);">
+        ${c? `<span>${esc(c.full_name)}</span>`:''}
+        ${t.assigned_to? `<span>· ${esc(t.assigned_to)}</span>`:''}
+        ${t.due_date? `<span>· ${fmtDateShort(t.due_date)}</span>`:''}
+      </div>
+    </div>
+    <span class="badge" style="background:${p.color}22; color:${p.color}">${p.label}</span>
+    <button class="icon-btn" data-edit-task="${t.id}">${icon('edit',16)}</button>
+  </div>`;
+}
+function bindTasks(){
+  document.querySelectorAll('[data-filter]').forEach(el=>el.addEventListener('click', ()=>{ S.taskFilter = el.getAttribute('data-filter'); render(); }));
+  document.querySelector('[data-new-task]')?.addEventListener('click', ()=>openTaskModal());
+  document.querySelectorAll('[data-toggle-task]').forEach(el=>el.addEventListener('change', e=>{
+    dbUpdate('tasks', el.getAttribute('data-toggle-task'), {status: e.target.checked? 'done':'todo'});
+  }));
+  document.querySelectorAll('[data-edit-task]').forEach(el=>el.addEventListener('click', ()=>{
+    const t = S.tasks.find(x=>x.id===el.getAttribute('data-edit-task')); openTaskModal(t);
+  }));
+}
+function openTaskModal(existing){
+  const isEdit = !!existing; const t = existing||{};
+  showModal(`
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg">${isEdit?'עריכת משימה':'משימה חדשה'}</h2>
+        <button class="icon-btn" data-close>${icon('x',18)}</button>
+      </div>
+      <form id="task-form" class="flex flex-col gap-3">
+        <label class="text-sm font-semibold">כותרת *<input name="title" required value="${esc(t.title||'')}" class="mt-1"></label>
+        <label class="text-sm font-semibold">תיאור<textarea name="description" rows="2" class="mt-1">${esc(t.description||'')}</textarea></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm font-semibold">עדיפות
+            <select name="priority" class="mt-1">${TASK_PRIORITIES.map(p=>`<option value="${p.id}" ${t.priority===p.id?'selected':''}>${p.label}</option>`).join('')}</select>
+          </label>
+          <label class="text-sm font-semibold">תאריך יעד<input name="due_date" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" data-date-mask value="${esc(isoToDMY(t.due_date))}" class="mt-1"></label>
+        </div>
+        <label class="text-sm font-semibold">לקוח משויך
+          <select name="client_id" class="mt-1"><option value="">—</option>${S.clients.map(c=>`<option value="${c.id}" ${t.client_id===c.id?'selected':''}>${esc(c.full_name)}</option>`).join('')}</select>
+        </label>
+        <label class="text-sm font-semibold">הקצאה לאיש צוות
+          <select name="assigned_to" class="mt-1"><option value="">—</option>${teamNames().map(n=>`<option value="${esc(n)}" ${t.assigned_to===n?'selected':''}>${esc(n)}</option>`).join('')}</select>
+        </label>
+        <div class="flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary flex-1">${isEdit?'שמירה':'יצירת משימה'}</button>
+          ${isEdit?`<button type="button" class="btn btn-danger" data-delete-task="${t.id}">${icon('trash',16)}</button>`:''}
+        </div>
+      </form>
+    </div>`);
+  document.getElementById('task-form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    if(!data.status) data.status = t.status || 'todo';
+    try{ data.due_date = readDMYField(fd, 'due_date', 'תאריך יעד'); }catch(err){ toast(err.message); return; }
+    if(isEdit) await dbUpdate('tasks', t.id, data);
+    else await dbAdd('tasks', data);
+    toast(isEdit?'המשימה עודכנה':'המשימה נוצרה');
+    closeModal(); render();
+  });
+  document.querySelector('[data-delete-task]')?.addEventListener('click', async ()=>{
+    if(await askConfirm('למחוק את המשימה?', {title:'מחיקת משימה', danger:true})){ await dbDelete('tasks', t.id); closeModal(); toast('נמחקה'); }
+  });
+}
+
+/* ============================== SETTINGS ============================== */
+function renderSettings(){
+  return `<div class="fade-in">
+    <h1 class="text-xl font-bold mb-4">הגדרות</h1>
+    <div class="flex flex-col gap-4 max-w-lg">
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">הארגון</h3>
+        <form id="org-form" class="flex gap-2">
+          <input name="name" value="${esc(S.org.name)}" class="flex-1">
+          <button class="btn btn-primary">שמירה</button>
+        </form>
+      </div>
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold">חברי צוות</h3>
+          <span style="color:var(--text-muted); font-size:12.5px;">${S.team.length}</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          ${S.team.length? S.team.sort((a,b)=>(b.lastSeen||0)-(a.lastSeen||0)).map(m=>`
+            <div class="flex items-center gap-3">
+              <span style="width:30px;height:30px;border-radius:99px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">${esc((m.name||'?')[0])}</span>
+              <div class="flex-1"><div class="font-medium" style="font-size:14px;">${esc(m.name)}${m.name===S.me.name?' (את/ה)':''}</div></div>
+              <span style="color:var(--text-muted); font-size:11.5px;">${m.lastSeen? fmtDate(m.lastSeen):''}</span>
+            </div>`).join('') : `<div class="empty-state">אין עדיין חברי צוות רשומים</div>`}
+        </div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">ייבוא תיקיית מדיה (תמונות)</h3>
+        <div style="color:var(--text-muted); font-size:12.5px; line-height:1.7;" class="mb-3">
+          בוחרים תיקייה (או כמה קבצים) עם תמונות מגיבוי חיצוני, והמערכת מנסה לשייך כל קובץ ללקוח הנכון לפי הנתיב/שם הקובץ שלו — אין צורך להעלות קובץ אחד בכל פעם, וכל קובץ תואם יתווסף לגלריה שלו. תומך רק בתמונות (לא באודיו, מאותה מגבלת אחסון שדיברנו עליה).
+          ${S.lastMediaIndex ? `<div class="mt-1" style="color:var(--success); font-weight:600;">✓ נטען מיפוי מדיה (${S.lastMediaIndex.length} רשומות) — ישופר בו ההתאמה</div>` : `<div class="mt-1">לא נטען קובץ מיפוי מדיה (כמו media_index.json) — ההתאמה תסתמך על מזהים/שמות שמופיעים בנתיב הקובץ עצמו.</div>`}
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <label class="btn btn-primary" style="cursor:pointer;">
+            ${icon('image',16)} בחירת תיקיית מדיה
+            <input type="file" id="media-folder-input" webkitdirectory multiple style="display:none;">
+          </label>
+          <label class="btn btn-ghost" style="cursor:pointer;">
+            ${icon('plus',16)} טעינת קובץ מיפוי (JSON) בלבד
+            <input type="file" id="media-map-input" accept=".json,application/json" style="display:none;">
+          </label>
+        </div>
+        ${!S.assets ? `<div class="flex items-start gap-2 p-2.5 rounded-xl mt-2" style="background:var(--warning-soft); color:var(--accent-text); font-size:12.5px;">${icon('wifiOff',14)}<span>יש להגדיר את firebaseConfig בראש הקובץ ולהפעיל Firebase Storage כדי שהעלאת תמונות תעבוד.</span></div>` : ''}
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">ייבוא וייצוא נתונים</h3>
+        <div class="flex flex-col gap-2">
+          <div class="flex gap-2 flex-wrap">
+            <button class="btn btn-ghost" data-export-json>${icon('download',16)} ייצוא JSON</button>
+            <button class="btn btn-ghost" data-export-zip>${icon('download',16)} ייצוא ZIP (כולל תמונות)</button>
+          </div>
+          <label class="btn btn-primary" style="cursor:pointer; width:fit-content;">
+            ${icon('plus',16)} ייבוא קובץ (JSON / ZIP)
+            <input type="file" id="import-file" accept=".json,.zip,application/json,application/zip" style="display:none;">
+          </label>
+          ${!S.downloads ? `<div class="flex items-start gap-2 p-2.5 rounded-xl mt-1" style="background:var(--warning-soft); color:var(--accent-text); font-size:12.5px;">${icon('wifiOff',14)}<span>זה לא אמור לקרות בגרסה הזו — ההורדה עובדת תמיד בדפדפן רגיל.</span></div>` : ''}
+          <div style="color:var(--text-muted); font-size:12px; line-height:1.6;">
+            תומך גם בייבוא הגיבוי של המערכת הזו וגם בזיהוי אוטומטי של קובץ גיבוי מאפליקציית CRM קליני חיצונית (ZIP עם clients/programs/sessions/tasks). הייבוא <b>מוסיף</b> נתונים חדשים ואינו דורס נתונים קיימים — אם מייבאים קובץ פעמיים, הלקוחות ייכפלו.
+          </div>
+        </div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold mb-2">אודות הסנכרון</h3>
+        <p style="color:var(--text-muted); font-size:13px; line-height:1.6;">
+          ${S.dbAvailable ? 'הנתונים מסתנכרנים בזמן אמת בין כל מי שפותח את קישור האפליקציה. אין הרשאות משתמשים נפרדות — כל מי שיש לו את הקישור יכול לצפות ולערוך.' : 'האפליקציה עדיין לא מחוברת ל-Firebase — מלאו את firebaseConfig בראש הקובץ (ראו README.md) כדי להפעיל סנכרון.'}
+        </p>
+      </div>
+      <button class="btn btn-ghost" data-logout-settings>${icon('logout',16)} החלפת משתמש במכשיר זה</button>
+    </div>
+  </div>`;
+}
+function bindSettings(){
+  document.getElementById('org-form')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const name = new FormData(e.target).get('name');
+    if(S.db) await S.db.doc('org/main').set({name});
+    S.org = {...S.org, name}; toast('נשמר'); render();
+  });
+  document.querySelector('[data-logout-settings]')?.addEventListener('click', async ()=>{
+    if(await askConfirm('להתנתק ולהחליף משתמש?', {title:'החלפת משתמש'})){ localStorage.removeItem('displayName'); S.me=null; render(); }
+  });
+  document.querySelector('[data-export-json]')?.addEventListener('click', exportJson);
+  document.querySelector('[data-export-zip]')?.addEventListener('click', exportZip);
+  document.getElementById('import-file')?.addEventListener('change', e=>{
+    const file = e.target.files[0]; if(file) handleImportFile(file); e.target.value='';
+  });
+  document.getElementById('media-folder-input')?.addEventListener('change', e=>{
+    const files = e.target.files; if(files && files.length) handleMediaFolder(files); e.target.value='';
+  });
+  document.getElementById('media-map-input')?.addEventListener('change', e=>{
+    const file = e.target.files[0]; if(file) handleMediaMapFile(file); e.target.value='';
+  });
+}
+
+/* ============================== MODAL ============================== */
+function showModal(innerHtml){
+  closeDatePicker();
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `<div class="modal-backdrop" data-backdrop><div class="modal-panel fade-in" data-panel>${innerHtml}</div></div>`;
+  root.querySelector('[data-backdrop]').addEventListener('click', e=>{ if(e.target.hasAttribute('data-backdrop')) closeModal(); });
+  root.querySelector('[data-close]')?.addEventListener('click', closeModal);
+  initDatePickers(root);
+}
+function closeModal(){ closeDatePicker(); document.getElementById('modal-root').innerHTML=''; }
+
+/* ============================== POPUP DATE PICKER ============================== */
+/** Wraps every [data-date-mask] text input with a small calendar-icon
+ *  button that opens a click-to-pick month calendar (in DD/MM/YYYY),
+ *  since native <input type=date> can't be forced into a fixed display
+ *  format across browsers. */
+function initDatePickers(root){
+  root.querySelectorAll('[data-date-mask]').forEach(input=>{
+    attachDateMask(input);
+    const wrap = document.createElement('div');
+    wrap.style.position = 'relative';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.style.paddingLeft = '36px';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-btn';
+    btn.setAttribute('data-date-toggle','1');
+    btn.title = 'בחירה מלוח שנה';
+    btn.style.cssText = 'position:absolute; left:2px; top:50%; transform:translateY(-50%); width:30px; height:30px; color:var(--text-muted);';
+    btn.innerHTML = icon('calendar',16);
+    btn.addEventListener('click', ()=>{ DP.input===input ? closeDatePicker() : openDatePicker(input); });
+    wrap.appendChild(btn);
+  });
+}
+const DP = { input:null, viewMonth:null };
+function closeDatePicker(){
+  document.getElementById('date-picker-popup')?.remove();
+  DP.input = null;
+  document.removeEventListener('mousedown', onDocClickForPicker, true);
+  window.removeEventListener('resize', closeDatePicker);
+}
+function onDocClickForPicker(e){
+  const popup = document.getElementById('date-picker-popup');
+  if(!popup || popup.contains(e.target) || e.target===DP.input || e.target.closest('[data-date-toggle]')) return;
+  closeDatePicker();
+}
+function openDatePicker(input){
+  closeDatePicker();
+  DP.input = input;
+  const iso = dmyToIso(input.value);
+  let base = iso ? new Date(iso+'T00:00:00') : new Date();
+  if(isNaN(base)) base = new Date();
+  DP.viewMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+  renderDatePickerPopup();
+  setTimeout(()=>{ document.addEventListener('mousedown', onDocClickForPicker, true); window.addEventListener('resize', closeDatePicker); }, 0);
+}
+function renderDatePickerPopup(){
+  if(!DP.input) return;
+  let popup = document.getElementById('date-picker-popup');
+  if(!popup){ popup = document.createElement('div'); popup.id = 'date-picker-popup'; document.body.appendChild(popup); }
+  popup.className = 'card p-3 fade-in';
+  popup.style.cssText = 'position:fixed; z-index:200; width:260px;';
+  const rect = DP.input.getBoundingClientRect();
+  let top = rect.bottom + 6, left = rect.left;
+  left = Math.min(Math.max(8,left), window.innerWidth-268);
+  if(top > window.innerHeight-300) top = Math.max(8, rect.top-286);
+  popup.style.top = top+'px'; popup.style.left = left+'px';
+
+  const m = DP.viewMonth;
+  const first = new Date(m.getFullYear(), m.getMonth(), 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
+  const cells = []; for(let i=0;i<startOffset;i++) cells.push(null); for(let d=1; d<=daysInMonth; d++) cells.push(d);
+  const selectedIso = dmyToIso(DP.input.value);
+
+  popup.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <button type="button" class="icon-btn" style="width:28px;height:28px;" data-dp-prev>${icon('chevR',15)}</button>
+      <div class="font-semibold" style="font-size:13px;">${MONTHS_HE[m.getMonth()]} ${m.getFullYear()}</div>
+      <button type="button" class="icon-btn" style="width:28px;height:28px;" data-dp-next>${icon('chevL',15)}</button>
+    </div>
+    <div class="grid grid-cols-7 gap-0.5 mb-1" style="color:var(--text-muted); font-size:10.5px; font-weight:700; text-align:center;">
+      ${WEEKDAYS_SHORT.map(w=>`<div>${w}</div>`).join('')}
+    </div>
+    <div class="grid grid-cols-7 gap-0.5">
+      ${cells.map(d=>{
+        if(!d) return `<div></div>`;
+        const iso = `${m.getFullYear()}-${pad2(m.getMonth()+1)}-${pad2(d)}`;
+        return `<button type="button" class="day-cell ${iso===todayIso()?'today':''} ${iso===selectedIso?'selected':''}" style="font-size:12px;" data-dp-day="${iso}">${d}</button>`;
+      }).join('')}
+    </div>
+    <button type="button" class="btn btn-ghost w-full mt-2" style="font-size:12px; padding:6px;" data-dp-today>היום</button>
+  `;
+  popup.querySelector('[data-dp-prev]').addEventListener('click', ()=>{ DP.viewMonth = new Date(m.getFullYear(), m.getMonth()-1, 1); renderDatePickerPopup(); });
+  popup.querySelector('[data-dp-next]').addEventListener('click', ()=>{ DP.viewMonth = new Date(m.getFullYear(), m.getMonth()+1, 1); renderDatePickerPopup(); });
+  popup.querySelectorAll('[data-dp-day]').forEach(el=>el.addEventListener('click', ()=>{
+    DP.input.value = isoToDMY(el.getAttribute('data-dp-day'));
+    DP.input.dispatchEvent(new Event('input', {bubbles:true}));
+    closeDatePicker();
+  }));
+  popup.querySelector('[data-dp-today]').addEventListener('click', ()=>{
+    DP.input.value = isoToDMY(todayIso());
+    DP.input.dispatchEvent(new Event('input', {bubbles:true}));
+    closeDatePicker();
+  });
+}
+
+/** In-app replacement for window.confirm(). Native browser dialogs
+ *  (confirm/alert/prompt) can be silently blocked when the page runs
+ *  inside a sandboxed iframe (e.g. an embedded artifact preview), which
+ *  would make every confirm()-gated action look like it does nothing. */
+function askConfirm(message, opts={}){
+  return new Promise(resolve=>{
+    const danger = !!opts.danger;
+    showModal(`<div class="p-5">
+      <div class="font-bold text-lg mb-2">${esc(opts.title || 'אישור פעולה')}</div>
+      <div style="white-space:pre-wrap; font-size:14px; color:var(--text-muted); line-height:1.6;" class="mb-5">${esc(message)}</div>
+      <div class="flex gap-2">
+        <button class="btn ${danger?'btn-danger':'btn-primary'} flex-1" data-confirm-yes>${danger?'מחיקה':'אישור'}</button>
+        <button class="btn btn-ghost flex-1" data-confirm-no>ביטול</button>
+      </div>
+    </div>`);
+    let settled = false;
+    const finish = val => { if(settled) return; settled = true; closeModal(); resolve(val); };
+    document.querySelector('[data-confirm-yes]')?.addEventListener('click', ()=>finish(true));
+    document.querySelector('[data-confirm-no]')?.addEventListener('click', ()=>finish(false));
+    document.querySelector('[data-backdrop]')?.addEventListener('click', e=>{ if(e.target.hasAttribute('data-backdrop')) finish(false); });
+  });
+}
+
+/* ============================== INCOMING SHARE (Web Share Target) ============================== */
+/** Called on boot (and again after sign-in): if the page was opened via
+ *  the manifest's share_target redirect (?shared=1), pulls the files the
+ *  service worker stashed in Cache Storage and opens the assignment modal. */
+async function checkIncomingShare(){
+  if(!S.me) return; // re-checked after setIdentity() once the query string is still there
+  if(!('caches' in window)) return;
+  const params = new URLSearchParams(location.search);
+  if(params.get('shared')!=='1') return;
+  try{
+    const cache = await caches.open('mindflow-share-v1');
+    const metaResp = await cache.match('/__share_meta__');
+    if(!metaResp){ history.replaceState({}, '', location.pathname+location.hash); return; }
+    const meta = await metaResp.json();
+    const files = [];
+    for(const f of (meta.files||[])){
+      const fileResp = await cache.match(`/__share_file_${f.index}__`);
+      if(fileResp){ const blob = await fileResp.blob(); files.push({blob, name:f.name, type:f.type||blob.type||'application/octet-stream'}); }
+    }
+    const keys = await cache.keys(); await Promise.all(keys.map(k=>cache.delete(k)));
+    history.replaceState({}, '', location.pathname+location.hash);
+    if(files.length) openIncomingShareModal(files);
+  }catch(e){ console.error('incoming share error', e); }
+}
+function openIncomingShareModal(files){
+  const state = { clientId:'', dest:'general' };
+  function paint(){
+    showModal(`
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-bold text-lg">${icon('sparkle',18)} קבצים שהתקבלו משיתוף</h2>
+          <button class="icon-btn" data-close>${icon('x',18)}</button>
+        </div>
+        <div class="flex flex-col gap-2 mb-4">
+          ${files.map(f=>`<div class="flex items-center gap-2 p-2 rounded-lg" style="background:var(--surface-2); font-size:13px;">
+            ${f.type.startsWith('image/')?icon('image',16):icon('sparkle',16)}<span class="truncate">${esc(f.name)}</span>
+          </div>`).join('')}
+        </div>
+        <label class="text-sm font-semibold">שיוך ללקוח
+          <select id="share-client-select" class="mt-1">
+            <option value="">בחרו לקוח…</option>
+            ${S.clients.map(c=>`<option value="${c.id}" ${state.clientId===c.id?'selected':''}>${esc(c.full_name)}</option>`).join('')}
+          </select>
+        </label>
+        ${state.clientId ? `<div class="mt-3">
+          <div class="text-sm font-semibold mb-1">שיוך אל</div>
+          <select id="share-dest-select">
+            <option value="general">מדיה כללית של הלקוח</option>
+            ${programsForClient(state.clientId).map(p=>`<option value="${p.id}">${p.title?esc(p.title):'תוכנית'} (${fmtDate(p.start_date)})</option>`).join('')}
+          </select>
+        </div>` : ''}
+        <button type="button" class="btn btn-primary w-full mt-4" id="share-confirm-btn" ${state.clientId?'':'disabled'}>${icon('sparkle',16)} העלאה ושיוך</button>
+      </div>
+    `);
+    document.getElementById('share-client-select').addEventListener('change', e=>{ state.clientId = e.target.value; state.dest='general'; paint(); });
+    document.getElementById('share-dest-select')?.addEventListener('change', e=>{ state.dest = e.target.value; });
+    document.getElementById('share-confirm-btn').addEventListener('click', ()=>{ if(state.clientId) confirmIncomingShare(files, state.clientId, state.dest); });
+  }
+  paint();
+}
+async function confirmIncomingShare(files, clientId, dest){
+  if(!S.assets){ toast('העלאת קבצים לא זמינה — יש להגדיר Firebase Storage'); return; }
+  closeModal();
+  toast('מעלה קבצים…');
+  const images=[], audios=[];
+  for(const f of files){
+    try{
+      const fileObj = new File([f.blob], f.name, {type:f.type});
+      const res = await S.assets.upload(fileObj, {type:f.type});
+      if(f.type.startsWith('image/')) images.push({id:res.id, url:res.url});
+      else audios.push({id:res.id, url:res.url, name:f.name});
+    }catch(e){ console.error(e); }
+  }
+  const col = dest==='general' ? 'clients' : 'programs';
+  const targetId = dest==='general' ? clientId : dest;
+  const target = dest==='general' ? clientById(clientId) : S.programs.find(p=>p.id===dest);
+  const patch = {};
+  if(images.length) patch.gallery = [...((target&&target.gallery)||[]), ...images];
+  if(audios.length) patch.audio = [...((target&&target.audio)||[]), ...audios];
+  if(Object.keys(patch).length) await dbUpdate(col, targetId, patch);
+  logActivity(clientId, `קובץ שותף מאפליקציה חיצונית ושויך${dest!=='general'?' לתוכנית':' למדיה הכללית'}`);
+  toast(`נשמרו ${images.length+audios.length} קבצים`);
+  render();
+}
+
+/* ============================== PWA INSTALL ============================== */
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); S.deferredInstall = e; render(); });
+
+/* ============================== BOOT ============================== */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(e=>console.error('SW register failed', e));
+}
+(async function boot(){
+  loadIdentity();
+  S.route = location.hash || '#/dashboard';
+  render();
+  await initCapabilities();
+  if(S.me) touchPresence();
+  checkIncomingShare();
+})();
+</script>
+</body>
+</html>

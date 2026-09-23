@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Anyone who is signed in (including anonymous sign-in, which the app
+    // does automatically) can read and write every collection this app
+    // uses: clients, programs, sessions, tasks, activity_logs, team, org.
+    // NOTE: this means anyone who has your deployed URL and loads the page
+    // gets full read/write access to all client data — the same trade-off
+    // the Claude-hosted version had, just without the "must be in our
+    // Claude org" guarantee. Keep the URL private, and see the "Tightening
+    // access" section in README.md if you want something stronger.
+    match /{collection}/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

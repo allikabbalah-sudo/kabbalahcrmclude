@@ -1,117 +1,117 @@
-# Kabbalah CRM
+# מיינד־פלואו — גרסה עצמאית (GitHub + Vercel)
 
-Multi-tenant clinic CRM built from the spec: React 19 + TanStack Start (SSR) on
-Cloudflare Workers, Supabase (Postgres + Auth + Storage + Realtime), Web Push,
-PWA. RTL Hebrew UI throughout.
+זו אותה אפליקציה בדיוק כמו הגרסה שרצה בתוך Claude — אותו עיצוב, אותם מסכים, אותה לוגיקה — רק
+שבמקום להשתמש ביכולת הסנכרון הפנימית של Claude (`window.claude`, שקיימת רק בתוך אירוח
+Artifacts), היא מחוברת ל־**Firebase** משלכם (חינמי בהיקף הזה). זה אומר שהיא תעבוד כאתר עצמאי
+לגמרי, בלי שום תלות ב־Claude.
 
-## What's implemented
+**חשוב:** הקובץ `index.html` לא יעבוד "כמו שהוא" עד שתמלאו את פרטי Firebase שלכם בשלב 4
+למטה. עד אז האפליקציה תיפתח אבל תציג הודעה שהיא לא מחוברת.
 
-- **Database**: full schema, RLS policies, storage buckets/policies, and
-  business-logic triggers — `supabase/migrations/0001..0004`. This is the
-  most load-bearing part of the app and is complete and ready to run.
-- **Auth**: email/password + Google OAuth, session-aware routing guard.
-- **Multi-tenancy**: organizations, membership roles, org switcher, invite
-  links, pending-approval flow.
-- **Clients**: list/search/filter, detail view, status pipeline (Kanban,
-  drag-and-drop), WhatsApp/phone quick actions.
-- **Programs & sessions**: recurrence-rule program creation that eagerly
-  materializes sessions; per-session status editing; auto-reschedule on
-  postpone (DB trigger).
-- **Tasks**: CRUD, priority, due dates, assignment notifications.
-- **Notifications**: in-app feed with Realtime updates + Web Push (VAPID),
-  service worker for push + basic offline app-shell caching.
-- **Cron hooks**: `/api/public/hooks/task-reminders` and
-  `/api/public/hooks/session-reminders`, secret-protected, meant to be called
-  by Cloudflare Cron Triggers or an external scheduler.
-- **Export**: admin-only full-organization data export as a ZIP of JSON.
+---
 
-## What's intentionally stubbed / left for you
+## שלב 1: יצירת פרויקט Firebase (חינמי)
 
-- **Email delivery** for invites (`src/lib/server-fns/invites.ts` has a
-  `TODO` where you wire in Resend/Postmark/etc — Supabase Auth emails for
-  signup/reset work out of the box, but invite emails are your own domain).
-- **App icons** (`public/icon-192.png`, `public/icon-512.png`) — add your own.
-- **`src/lib/database.types.ts`** is a loose placeholder; regenerate it
-  against your real project (command below) for full type safety.
-- Some secondary screens implied by the spec (bulk client import, advanced
-  reporting/analytics charts, audio waveform playback UI) have their data
-  layer in place (`audio_urls`/`image_urls` columns, storage buckets, signed
-  URL helper) but no dedicated screen yet — the `FileGallery`/`AudioRecorder`
-  component stubs in `src/components/media/` are the place to build them out.
-- Cloudflare Cron Trigger wiring (`scheduled()` handler that calls the two
-  hook routes) — add to a `_worker.ts`/Wrangler cron config per current
-  Cloudflare + TanStack Start docs, since exact glue code depends on your
-  Wrangler version.
+1. כנסו ל-[console.firebase.google.com](https://console.firebase.google.com) והתחברו עם חשבון Google
+2. "Add project" → תנו שם (למשל `mindflow-clinic`) → אפשר לכבות Google Analytics (לא נחוץ) → Create
 
-## Setup
+## שלב 2: הפעלת השירותים הדרושים
 
-1. **Supabase project**
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push   # runs supabase/migrations/*.sql in order
+בתפריט הצד של הפרויקט:
+
+1. **Build → Firestore Database** → "Create database" → מצב **Production** → בחרו אזור (כל אזור בסדר, למשל `eur3`) → Enable
+2. **Build → Storage** → "Get started" → Production mode → Done
+3. **Build → Authentication** → "Get started" → בטאב Sign-in method, הפעילו **Anonymous** (זה מה שנותן לאפליקציה גישה בלי מסך התחברות אמיתי)
+
+## שלב 3: הגדרת כללי אבטחה (Security Rules)
+
+1. ב-Firestore → טאב **Rules** → מחקו את מה שיש ותדביקו את התוכן של `firestore.rules` (מצורף כאן) → Publish
+2. ב-Storage → טאב **Rules** → אותו דבר עם `storage.rules` → Publish
+
+## שלב 4: חיבור האפליקציה לפרויקט שלכם
+
+1. בעמוד הראשי של הפרויקט ב-Firebase, לחצו על סמל ה-**Web** (`</>`) כדי להוסיף אפליקציית ווב → תנו שם → Register app
+2. תקבלו בלוק קוד עם `firebaseConfig = {...}` — **העתיקו את הערכים**
+3. פתחו את `index.html` בעורך טקסט, חפשו בראש הקובץ:
+   ```js
+   const firebaseConfig = {
+     apiKey: "YOUR_API_KEY",
+     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+     ...
+   };
    ```
-2. **Enable Google OAuth** (optional) in Supabase Dashboard → Authentication → Providers.
-3. **VAPID keys** for Web Push:
-   ```bash
-   npx web-push generate-vapid-keys
-   ```
-4. **Environment variables** — copy `.env.example` to `.env` and fill in:
-   - `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (browser-safe, anon key)
-   - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (server-only)
-   - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
-   - `CRON_SECRET` (any random string; must match what your scheduler sends)
-5. **Install & run**
-   ```bash
-   npm install
-   npm run dev
-   ```
-6. **Generate real DB types** (recommended before writing more features):
-   ```bash
-   npx supabase gen types typescript --project-id <PROJECT_ID> > src/lib/database.types.ts
-   ```
-7. **Deploy** to Cloudflare:
-   ```bash
-   npx wrangler secret put SUPABASE_URL
-   npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
-   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-   npx wrangler secret put VAPID_PUBLIC_KEY
-   npx wrangler secret put VAPID_PRIVATE_KEY
-   npx wrangler secret put VAPID_SUBJECT
-   npx wrangler secret put CRON_SECRET
-   npm run deploy
-   ```
+   והחליפו את הערכים באלה שקיבלתם מ-Firebase. שמרו את הקובץ.
 
-## Project structure
+## שלב 5: העלאה ל-GitHub
 
+```bash
+cd standalone-app          # התיקייה עם index.html, README.md וכו'
+git init
+git add .
+git commit -m "מיינד־פלואו - גרסה עצמאית"
 ```
-supabase/migrations/     Schema, RPC functions & triggers, RLS, storage policies
-src/routes/               File-based routes (TanStack Router)
-  _authenticated.tsx       Auth guard + org context + app shell layout
-  _authenticated/          Dashboard, clients, pipeline, calendar, tasks, notifications, settings
-  api/public/hooks/        Cron-triggered notification endpoints
-src/lib/server-fns/       createServerFn mutations (clients, programs, tasks, invites, push, export)
-src/lib/business-logic.ts Pure functions: recurrence expansion, WhatsApp links, labels
-src/hooks/                 AuthProvider, OrganizationProvider
-src/components/            Layout shell, client cards, kanban board, dialogs
-public/sw.js               PWA service worker (push + offline shell)
+צרו repository חדש וריק ב-[github.com/new](https://github.com/new) (בלי README/gitignore), ואז:
+```bash
+git remote add origin https://github.com/USERNAME/REPO_NAME.git
+git branch -M main
+git push -u origin main
 ```
 
-## Notes on correctness vs. the spec
+## שלב 6: פריסה ב-Vercel
 
-- RLS mirrors the visibility rule from the spec: admins/owners see everything
-  in the org; therapists/members see only clients they're assigned to,
-  created, or were added to via `client_assignees`.
-- The "waiting client follow-up" and "new program → client active" behaviors
-  are implemented as DB triggers, not client-side logic, so they hold even
-  for direct DB writes / other future clients of this schema.
-- Session recurrence expansion is duplicated intentionally in two places —
-  `src/lib/business-logic.ts` (client-side preview) and the Postgres
-  `tg_session_postponed_reschedule` trigger (server-side, for postponements)
-  — kept in sync conceptually but not literally shared code, since one runs
-  in the browser/Node and the other in PL/pgSQL.
+1. כנסו ל-[vercel.com](https://vercel.com) והתחברו עם GitHub
+2. "Add New" → "Project" → בחרו את ה-repository שיצרתם
+3. אין צורך לשנות שום הגדרה (זה אתר סטטי, `vercel.json` המצורף כבר אומר ל-Vercel לא לנסות להריץ build) → Deploy
+4. אחרי דקה תקבלו כתובת אמיתית כמו `https://your-app.vercel.app` — זו האפליקציה החיה שלכם
 
-This is a full, runnable scaffold — not a finished production app. Framework
-versions (TanStack Start, Tailwind v4) move quickly; if `npm install` surfaces
-peer-dependency mismatches, check the current docs for the exact pinned
-versions before forcing installs.
+מרגע זה, כל עדכון שתעשו לקוד ותדחפו ל-GitHub (`git push`) יפרוס אוטומטית גרסה חדשה ל-Vercel.
+
+---
+
+## מה זהה לגרסה שרצה ב-Claude, ומה שונה
+
+**זהה לגמרי:** כל המסכים, הפיצ'רים (לקוחות, תוכניות, יומן, משימות, ייבוא/ייצוא, קריאה חיה מהירה
+וכו'), העיצוב, ה-RTL, ה-Dark Mode.
+
+**שונה מתחת למכסה המנוע:**
+- הסנכרון בזמן אמת עכשיו דרך Firestore במקום `window.claude`
+- העלאת תמונות עכשיו דרך Firebase Storage
+- ייצוא קבצים (JSON/ZIP) משתמש בהורדת דפדפן רגילה — ואמור לעבוד **טוב יותר** כאן מאשר בתוך Claude, כי אין הגבלות של iframe מוטמע
+- **בקרת גישה שונה:** בגרסת Claude, הגישה הייתה מוגבלת אוטומטית לחברי הארגון שלכם ב-Claude. כאן, **כל מי שנכנס לכתובת ה-Vercel שלכם מקבל גישה מלאה** (כי ה-rules רק בודקים "מחובר, גם אם אנונימי"). שמרו על הכתובת פרטית. אם תרצו הגנה חזקה יותר (למשל: התחברות אמיתית עם סיסמה, לא רק אנונימית) — זה שינוי שכדאי לבקש בנפרד, כי הוא דורש מסך התחברות אמיתי ולא רק כפתור "כניסה בשם".
+
+## בעיות נפוצות
+
+- **"האפליקציה עדיין לא מחוברת ל-Firebase"** — בדקו ששמרתם את `index.html` עם הפרטים האמיתיים משלב 4, ושאין רווח/גרש עודף שנפל בטעות.
+- **תמונות לא מעלות** — ודאו ששלב 2.2 (Storage) בוצע, ושכללי ה-Storage פורסמו (שלב 3).
+- **"Missing or insufficient permissions"** בקונסול הדפדפן — כללי ה-Firestore לא פורסמו נכון, חזרו לשלב 3.
+
+---
+
+## מה נוסף בעדכון הזה
+
+**PWA אמיתי לאנדרואיד:** `manifest.json` אמיתי (לא data URI) עם אייקונים אמיתיים (`icons/`), ו-`sw.js` — Service Worker אמיתי. בגלל שזה עכשיו רץ על דומיין אמיתי (Vercel), זה סוף־סוף עובד כמו שצריך: בכרום באנדרואיד אמור להופיע "התקנת אפליקציה" (Install app) ולא רק קיצור דרך.
+
+**קליטת שיתוף מוואטסאפ ואפליקציות אחרות (Share Target):** אחרי שהאפליקציה מותקנת פעם אחת (חשוב: צריך לפתוח אותה פעם אחת קודם כדי שה-Service Worker יירשם), היא תופיע ברשימת האפליקציות כשמשתפים תמונה/קובץ שמע מוואטסאפ או מהגלריה. האפליקציה תיפתח עם מודל שמבקש לבחור לקוח ויעד (מדיה כללית או תוכנית ספציפית), ואז מעלה את הקובץ ומשייכת אותו.
+
+**הקלטה והעלאת קבצי שמע אמיתיים:** בטאב "מדיה" של כל לקוח יש עכשיו כפתור הקלטה (עם המיקרופון של המכשיר) וכפתור העלאת קובץ שמע קיים — שניהם נשמרים ב-Firebase Storage ומתנגנים ישירות באפליקציה. (הקישור החיצוני להקלטה נשאר זמין גם הוא, מתחת ל"קישור להקלטה חיצונית".)
+
+**כפתורי שיתוף מהירים:** לכל תמונה והקלטה יש כפתור שיתוף (פותח את תפריט השיתוף האמיתי של המכשיר — שם אפשר לבחור וואטסאפ, מייל, או כל אפליקציה אחרת שתומכת בקבלת קבצים) וכפתור "שליחה במייל" (פותח טיוטת מייל עם קישור לקובץ). **הערה חשובה:** אין דרך טכנית לדחוף קובץ ישירות לתוך וואטסאפ בלי דרך תפריט השיתוף של המכשיר — זו מגבלה של הדפדפנים עצמם, לא של האפליקציה.
+
+**עריכה ומחיקה של תוכניות:** לכל תוכנית יש עכשיו כפתור עריכה (✏️) שפותח את אותו טופס עם האפשרות לשנות כל פרט, כולל מחיקת התוכנית כולה. אם משנים תאריך/ימים/מספר סשנים, יש צ'קבוקס "לחשב מחדש את לוח הסשנים" — זה מוחק רק סשנים שעוד לא הושלמו ובונה אותם מחדש; סשנים שכבר סומנו כ"הושלם" לא נפגעים.
+
+**כמה סשנים ביום עם שעות שונות:** כשבוחרים יותר מסשן אחד ביום, נפתחים כמה שדות שעה נפרדים (למשל סשן בוקר בשעה אחת וסשן ערב בשעה אחרת), במקום שעה אחת לכולם.
+
+### דרישות נוספות להתקנה/שיתוף
+
+- Share Target ו"Install app" האמיתי דורשים HTTPS (יש כברירת מחדל ב-Vercel) ו-Service Worker פעיל — כלומר המשתמש חייב לפתוח את האתר פעם אחת בדפדפן לפני שהאפשרויות האלה מופיעות.
+- זה תלוי בתמיכת הדפדפן/מכשיר הספציפי — בדפדפנים/מכשירים ישנים יותר חלק מהיכולות (בעיקר Share Target) עלולות לא להופיע.
+
+## "אנדרואיד עדיין נותן קיצור דרך ולא 'התקנת אפליקציה'"
+
+בדקתי את `manifest.json`, האייקונים (מידות נכונות בפועל: 192×192 ו-512×512) ו-`sw.js` — מבנית הכל תקין ועומד בדרישות. גם תיקנתי אותם להיות עמידים יותר (נתיבים יחסיים במקום מוחלטים, `display_override` כאות חיזוק נוסף). אבל אם עדיין מקבלים רק קיצור דרך, זה כמעט תמיד אחת מהסיבות הבאות — שאני לא יכול לבדוק מכאן כי הן תלויות בפריסה החיה שלכם:
+
+1. **Chrome זוכר החלטה ישנה** — אם ניסיתם להתקין את האתר *לפני* שהיה לו manifest/Service Worker תקינים, כרום עשוי "לזכור" שזו רק תזכורת/bookmark ולא להעריך מחדש. **פתרון:** מחקו את קיצור הדרך הקיים ממסך הבית, ואז ב-Chrome: הגדרות ⋮ ← Settings ← Site settings ← מצאו את האתר ← "Clear & reset" (או פשוט Site settings מתוך ⓘ ליד שורת הכתובת ← Delete data). אחר כך סגרו את Chrome לגמרי ופתחו את האתר מחדש.
+2. **מבנה תיקיות בריפו לא תואם ל-Root Directory שהגדרתם ב-Vercel** — אם `manifest.json`/`sw.js`/`icons/` לא נמצאים בדיוק באותה רמה שבה `index.html` נטען (root של הדומיין), הם פשוט לא ייטענו. בדקו ב-DevTools בנייד (או `chrome://inspect` ממחשב מחובר) בטאב Application → Manifest: אם כתוב שגיאה או שהאייקונים לא מוצגים שם — זו הבעיה. הפתרון: ודאו ש-Vercel Project Settings → Root Directory מצביע בדיוק על התיקייה שבה `index.html` נמצא.
+3. **הפריסה לא התעדכנה בפועל** — ודאו ש-`git push` האחרון כלל את `manifest.json`, `sw.js` ותיקיית `icons/` (לא רק את `index.html`), ושה-deployment ב-Vercel שרואים הוא באמת העדכני (יש תאריך/commit hash למעלה בדשבורד של Vercel).
+4. **בדיקה מהירה שעובדת בוודאות:** בכרום דסקטופ, פתחו את האתר החי, לחצו F12 → טאב **Lighthouse** → הריצו בדיקת "Installability" (או Application → Manifest לבדיקה ידנית). אם שם הכל ירוק/תקין, זה אמור לעבוד גם בנייד — ואם משהו אדום, הוא יגיד בדיוק מה חסר.
+
