@@ -1,5 +1,5 @@
 // Minimal PWA service worker: app-shell caching + web push handling.
-const CACHE_NAME = "kabbalah-crm-v1";
+const CACHE_NAME = "kabbalah-crm-v2";
 const APP_SHELL = ["/", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
